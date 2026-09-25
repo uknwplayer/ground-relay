@@ -1,7 +1,7 @@
 # Current checkpoint
 
 **Date:** 2026-09-25  
-**Stage:** M3 — first real devnet deployment  
+**Stage:** M3 — post-deploy verification  
 **Repository:** `uknwplayer/ground-relay`
 
 ## Verified working state
