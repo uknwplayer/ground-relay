@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{
     self, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 
-declare_id!("6CtPVpGHjborfUxFukC8sa97SgNo3XuvAAw8FMxmeVAM");
+declare_id!("6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap");
 
 #[program]
 pub mod ground_relay {

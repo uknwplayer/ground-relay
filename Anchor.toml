@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-ground_relay = "6CtPVpGHjborfUxFukC8sa97SgNo3XuvAAw8FMxmeVAM"
+ground_relay = "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap"
 
 [programs.devnet]
-ground_relay = "6CtPVpGHjborfUxFukC8sa97SgNo3XuvAAw8FMxmeVAM"
+ground_relay = "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap"
 
 [provider]
 cluster = "devnet"
