@@ -1,7 +1,7 @@
 # Current checkpoint
 
 **Date:** 2026-09-25  
-**Stage:** M3 — post-deploy verification  
+**Stage:** M4 — real funded escrow fixture  
 **Repository:** `uknwplayer/ground-relay`
 
 ## Verified working state
@@ -60,10 +60,7 @@ Run ID:
 
 Observed during the run:
 
-- deployment Secrets loaded successfully
 - controlled program identity check passed
-- `declare_id`, `Anchor.toml`, and program keypair all matched
-- deployer: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
 - deployer balance before deployment: `2.5 SOL` on devnet
 - program build completed successfully
 - Anchor reported program ID `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
@@ -71,9 +68,21 @@ Observed during the run:
 - IDL metadata was initialized
 - metadata account reported by Anchor: `7GuXcvE5MrKneC5vSAcyZZHmQ8k1Pm7NhNHTGDTBmqWp`
 
-The overall workflow conclusion is **failure**, but the failure occurred only in the subsequent verification step. The command `solana program show` was invoked without a configured default signer and returned `No default signer found`.
+The original workflow was marked failed only because its final `solana program show` verification command expected a default signer.
 
-Therefore the deployment is treated as **reported successful by Anchor but not yet independently verified**.
+That verification path has now been replaced by a signer-free JSON-RPC check.
+
+Independent devnet verification run:
+
+- workflow: `Devnet program preflight`
+- run ID: `36202453116`
+- conclusion: **success**
+- program account: **PRESENT**
+- executable: **true**
+- owner: `BPFLoaderUpgradeab1e11111111111111111111111`
+- lamports: `833120`
+
+**M3 deployment verification is complete.**
 
 ## Documentation state
 
@@ -106,8 +115,13 @@ No production/mainnet deployment is authorized by this checkpoint.
 
 ## Next recommended action
 
-Independently verify that program account `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap` is present and executable on devnet using a signer-free RPC query or corrected verification workflow.
+Advance to M4: create a real funded escrow task on devnet.
 
-If present and executable: record the on-chain program metadata, close M3, archive this checkpoint, and advance to M4 — create a real funded escrow task.
+The next implementation block should:
+1. choose/create a clearly labeled devnet-only SPL payment mint for the demo;
+2. create the poster and worker token accounts;
+3. call `post_task` against the deployed Ground Relay program;
+4. fund the task vault with the demo reward;
+5. verify the task PDA and vault state on-chain.
 
-If verification fails: diagnose the account state while preserving the existing program identity and deployment Secrets.
+Do not replace the proven mobile memo path until this real funded escrow fixture exists and is independently verified.
