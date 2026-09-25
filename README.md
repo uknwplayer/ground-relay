@@ -52,3 +52,24 @@ Install an MWA-compatible development wallet on the Android device/emulator befo
 ## License
 
 MIT
+
+
+## Checkpoint — 2026-09-25 15:12 BRT
+
+Current Android standalone APK reaches the Ground Relay app, but crashes at startup inside `@wallet-ui/react-native-kit` / `MobileWalletProvider`.
+
+Observed device error:
+- `NativeModule: AsyncStorage is null`
+- stack passes through `facebook::react::jni::JniException` and React Native startup.
+
+Evidence from the release build shows AsyncStorage was autolinked and compiled, so the current working hypothesis is a native compatibility/version mismatch rather than a missing npm install.
+
+Fix applied at this checkpoint:
+- pinned `@react-native-async-storage/async-storage` to `2.2.0`
+- pinned `@wallet-ui/react-native-kit` to `4.2.1`
+- pinned `@solana-program/memo` to `0.12.0`
+- pinned `@solana/kit` to `7.0.0`
+- pinned `react-native-quick-crypto` to `1.1.6`
+- pinned `react-native-nitro-modules` to `0.36.5`
+
+These versions follow the Solana Mobile Expo Kit template compatibility line. Next action: let CI rebuild the standalone APK, install that artifact, and verify startup before changing application logic.
