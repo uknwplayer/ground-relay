@@ -34,10 +34,9 @@ jobs:
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
       - name: Install AVM and Anchor 1.2.0
         run: |
-          curl -sSfL https://raw.githubusercontent.com/otter-sec/anchor/master/avm/install | sh
-          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
+          cargo install --git https://github.com/otter-sec/anchor avm --force
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.avm/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
           avm install 1.2.0
           avm use 1.2.0
       - name: Install SBF platform tools v1.57
