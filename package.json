@@ -4,7 +4,7 @@
   "private": true,
   "main": "./index.js",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit"
   },
@@ -14,7 +14,6 @@
     "@solana/kit": "latest",
     "@wallet-ui/react-native-kit": "latest",
     "expo": "~57.0.25",
-    "expo-dev-client": "latest",
     "expo-status-bar": "~57.0.0",
     "expo-system-ui": "latest",
     "react": "19.2.3",
