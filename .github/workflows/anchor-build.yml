@@ -26,10 +26,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container:
-      image: quay.io/ottersec/anchor:v1.2.0
     steps:
       - uses: actions/checkout@v4
+      - name: Install Anchor and Solana
+        uses: metadaoproject/setup-anchor@v3.4
+        with:
+          anchor-version: "1.2.0"
+          solana-cli-version: "4.1.2"
+          node-version: "22"
       - name: Toolchain versions
         run: |
           anchor --version
