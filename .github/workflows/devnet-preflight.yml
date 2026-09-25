@@ -1,0 +1,46 @@
+name: Devnet program preflight
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Anchor.toml"
+      - "programs/ground-relay/src/lib.rs"
+      - ".github/workflows/devnet-preflight.yml"
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query declared program ID through Solana JSON-RPC
+        run: |
+          set -euo pipefail
+          PROGRAM_ID="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' programs/ground-relay/src/lib.rs | head -n1)"
+          ANCHOR_ID="$(awk '/\[programs.devnet\]/{flag=1;next}/^\[/{flag=0}flag && /ground_relay/{gsub(/[ "]/,"",$3); print $3}' Anchor.toml)"
+          echo "declare_id: $PROGRAM_ID"
+          echo "Anchor.toml: $ANCHOR_ID"
+          test "$PROGRAM_ID" = "$ANCHOR_ID"
+
+          RESPONSE="$(curl -sS https://api.devnet.solana.com             -H 'content-type: application/json'             -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$PROGRAM_ID\",{\"encoding\":\"base64\"}]}")"
+
+          python3 - "$PROGRAM_ID" "$RESPONSE" <<'PY'
+import json, sys
+program_id, raw = sys.argv[1], sys.argv[2]
+data = json.loads(raw)
+if "error" in data:
+    print("RPC error:", json.dumps(data["error"], sort_keys=True))
+    raise SystemExit(1)
+value = data.get("result", {}).get("value")
+print("Program ID:", program_id)
+if value is None:
+    print("Devnet account: ABSENT")
+else:
+    print("Devnet account: PRESENT")
+    print("Owner:", value.get("owner"))
+    print("Executable:", value.get("executable"))
+    print("Lamports:", value.get("lamports"))
+    print("Data bytes (base64 chars):", len(value.get("data", [""])[0]))
+PY
