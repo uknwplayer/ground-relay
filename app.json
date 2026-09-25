@@ -7,6 +7,14 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.uknwplayer.groundrelay"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Ground Relay uses the camera to capture evidence for a task."
+        }
+      ]
+    ]
   }
 }
