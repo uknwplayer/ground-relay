@@ -36,8 +36,8 @@ jobs:
       - name: Check Ground Relay program
         env:
           RUSTFLAGS: --allow unexpected_cfgs
-        run: cargo check --manifest-path programs/ground-relay/Cargo.toml
+        run: cargo check --workspace
       - name: Test Ground Relay program
         env:
           RUSTFLAGS: --allow unexpected_cfgs
-        run: cargo test --manifest-path programs/ground-relay/Cargo.toml
+        run: cargo test --workspace
