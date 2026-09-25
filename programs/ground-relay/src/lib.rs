@@ -217,11 +217,8 @@ pub mod ground_relay {
             authority: task.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                cpi_accounts,
-                signer,
-            ),
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
+                .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
         )?;
