@@ -1,0 +1,37 @@
+name: Anchor program CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "programs/**"
+      - ".github/workflows/anchor.yml"
+  pull_request:
+    paths:
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "programs/**"
+      - ".github/workflows/anchor.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: anchor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  program:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Check Ground Relay program
+        run: cargo check --manifest-path programs/ground-relay/Cargo.toml
+      - name: Test Ground Relay program
+        run: cargo test --manifest-path programs/ground-relay/Cargo.toml
