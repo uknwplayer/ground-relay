@@ -3,6 +3,15 @@ name: Android debug APK
 on:
   push:
     branches: ["main"]
+    paths:
+      - "App.tsx"
+      - "app.json"
+      - "index.js"
+      - "polyfill.js"
+      - "package.json"
+      - "tsconfig.json"
+      - "src/**"
+      - ".github/workflows/android-debug.yml"
   workflow_dispatch:
 
 concurrency:
