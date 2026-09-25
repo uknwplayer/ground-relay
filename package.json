@@ -9,17 +9,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "@solana-program/memo": "0.12.0",
-    "@solana/kit": "7.0.0",
-    "@wallet-ui/react-native-kit": "4.2.1",
+    "@react-native-async-storage/async-storage": "latest",
+    "@solana-program/memo": "latest",
+    "@solana/kit": "latest",
+    "@wallet-ui/react-native-kit": "latest",
     "expo": "~57.0.25",
     "expo-status-bar": "~57.0.0",
     "expo-system-ui": "latest",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-nitro-modules": "0.36.5",
-    "react-native-quick-crypto": "1.1.6",
+    "react-native-nitro-modules": "latest",
+    "react-native-quick-crypto": "latest",
     "expo-file-system": "~57.0.7",
     "expo-image-picker": "~57.0.20"
   },
