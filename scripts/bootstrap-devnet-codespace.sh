@@ -8,7 +8,19 @@ if [[ "${GROUND_RELAY_BOOTSTRAP_CONFIRM:-}" != "YES" ]]; then
 fi
 
 command -v gh >/dev/null 2>&1 || { echo "GitHub CLI (gh) is required." >&2; exit 2; }
-gh auth status >/dev/null 2>&1 || { echo "Authenticate GitHub CLI first: gh auth login" >&2; exit 2; }
+
+# Codespaces commonly injects a GitHub App token that can push code but cannot
+# write Actions secrets. Check the exact permission before generating keypairs.
+if ! gh api repos/uknwplayer/ground-relay/actions/secrets/public-key >/dev/null 2>&1; then
+  echo "Codespaces token cannot write Actions secrets. Starting one-time GitHub CLI authorization..."
+  unset GH_TOKEN GITHUB_TOKEN
+  gh auth login --hostname github.com --git-protocol https --web --scopes repo
+fi
+
+if ! gh api repos/uknwplayer/ground-relay/actions/secrets/public-key >/dev/null 2>&1; then
+  echo "GitHub CLI still lacks permission to write Actions secrets. No keypairs were generated." >&2
+  exit 3
+fi
 
 if ! command -v solana-keygen >/dev/null 2>&1; then
   echo "Installing Solana CLI 4.1.2..."
