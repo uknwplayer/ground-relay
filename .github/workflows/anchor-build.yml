@@ -1,0 +1,52 @@
+name: Anchor SBF + IDL
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "programs/**"
+      - ".github/workflows/anchor-build.yml"
+  pull_request:
+    paths:
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "programs/**"
+      - ".github/workflows/anchor-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: anchor-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: quay.io/ottersec/anchor:v1.2.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain versions
+        run: |
+          anchor --version
+          solana --version
+          rustc --version
+      - name: Build SBF and IDL
+        run: anchor build
+      - name: Verify build artifacts
+        run: |
+          test -f target/deploy/ground_relay.so
+          test -f target/idl/ground_relay.json
+          ls -lh target/deploy/ground_relay.so target/idl/ground_relay.json
+      - name: Upload public build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ground-relay-anchor-build
+          path: |
+            target/deploy/ground_relay.so
+            target/idl/ground_relay.json
+          if-no-files-found: error
