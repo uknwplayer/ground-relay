@@ -6,6 +6,7 @@ on:
     paths:
       - "Anchor.toml"
       - "programs/ground-relay/src/lib.rs"
+      - "scripts/verify-devnet-program.sh"
       - ".github/workflows/devnet-preflight.yml"
   workflow_dispatch:
 
@@ -15,14 +16,5 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Query declared program ID through Solana JSON-RPC
-        run: |
-          set -euo pipefail
-          PROGRAM_ID="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' programs/ground-relay/src/lib.rs | head -n1)"
-          ANCHOR_ID="$(awk '/\[programs.devnet\]/{flag=1;next}/^\[/{flag=0}flag && /ground_relay/{gsub(/[ "]/,"",$3); print $3}' Anchor.toml)"
-          echo "declare_id: $PROGRAM_ID"
-          echo "Anchor.toml: $ANCHOR_ID"
-          test "$PROGRAM_ID" = "$ANCHOR_ID"
-
-          RESPONSE="$(curl -sS https://api.devnet.solana.com -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$PROGRAM_ID\",{\"encoding\":\"base64\"}]}")"
-          RESPONSE="$RESPONSE" PROGRAM_ID="$PROGRAM_ID" python3 -c 'import json,os; d=json.loads(os.environ["RESPONSE"]); v=d.get("result",{}).get("value"); print("Program ID:",os.environ["PROGRAM_ID"]); print("Devnet account: ABSENT" if v is None else "Devnet account: PRESENT"); print("" if v is None else "Owner: {}\\nExecutable: {}\\nLamports: {}".format(v.get("owner"),v.get("executable"),v.get("lamports")))'
+      - name: Verify declared program account through signer-free Solana RPC
+        run: bash scripts/verify-devnet-program.sh

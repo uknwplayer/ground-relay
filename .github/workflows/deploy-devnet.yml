@@ -73,12 +73,12 @@ jobs:
 
       - name: Deploy to devnet
         run: |
-          anchor deploy             --provider.cluster devnet             --provider.wallet /tmp/ground-relay-deployer.json
+          anchor deploy \
+            --provider.cluster devnet \
+            --provider.wallet /tmp/ground-relay-deployer.json
 
-      - name: Verify deployed program
-        run: |
-          PROGRAM_ID="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' programs/ground-relay/src/lib.rs | head -n1)"
-          solana program show "$PROGRAM_ID" --url https://api.devnet.solana.com
+      - name: Verify deployed program without signer dependency
+        run: bash scripts/verify-devnet-program.sh
 
       - name: Remove key material
         if: always()
