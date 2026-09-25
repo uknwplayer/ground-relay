@@ -10,3 +10,10 @@ android/app/build/
 .env.*
 !.env.example
 .DS_Store
+
+# Solana / Anchor build output and signing material
+target/
+programs/*/target/
+.anchor/
+test-ledger/
+*-keypair.json
