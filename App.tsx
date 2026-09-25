@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -18,6 +19,10 @@ import {
 } from "@wallet-ui/react-native-kit";
 
 import { demoTask } from "./src/demo/task";
+import {
+  capturePhotoEvidence,
+  type CapturedPhotoEvidence,
+} from "./src/evidence/capture";
 import { transition } from "./src/protocol/state-machine";
 import type { RelayTask } from "./src/protocol/types";
 
@@ -36,14 +41,25 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-6)}`;
 }
 
+function shortHash(value: string): string {
+  if (value.length < 20) return value;
+  return `${value.slice(0, 10)}…${value.slice(-10)}`;
+}
+
 function RelayScreen() {
   const { account, connect, disconnect, sendTransactions } = useMobileWallet();
   const [task, setTask] = useState<RelayTask>(demoTask);
-  const [signature, setSignature] = useState<string>();
+  const [claimSignature, setClaimSignature] = useState<string>();
+  const [deliverySignature, setDeliverySignature] = useState<string>();
+  const [capturedEvidence, setCapturedEvidence] =
+    useState<CapturedPhotoEvidence>();
   const [busy, setBusy] = useState(false);
 
   const walletAddress = account?.address?.toString();
   const canClaim = task.status === "open" && Boolean(walletAddress);
+  const canCapture = task.status === "claimed" && Boolean(walletAddress);
+  const canSubmit =
+    task.status === "claimed" && Boolean(walletAddress) && Boolean(capturedEvidence);
 
   const criteriaDone = useMemo(
     () => task.criteria.filter((criterion) => criterion.required).length,
@@ -60,13 +76,14 @@ function RelayScreen() {
         v: 1,
         action: "claim",
         taskId: task.id,
+        worker: walletAddress,
       });
 
       const nextSignature = await sendTransactions([
         getAddMemoInstruction({ memo }),
       ]);
 
-      setSignature(nextSignature.toString());
+      setClaimSignature(nextSignature.toString());
       setTask((current) => ({
         ...current,
         worker: walletAddress,
@@ -81,9 +98,62 @@ function RelayScreen() {
     }
   }
 
+  async function captureEvidence() {
+    if (!canCapture) return;
+
+    setBusy(true);
+    try {
+      const evidence = await capturePhotoEvidence(task.id);
+      if (evidence) {
+        setCapturedEvidence(evidence);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Evidence capture failed";
+      Alert.alert("Evidence capture failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitEvidence() {
+    if (!walletAddress || !capturedEvidence || !canSubmit) return;
+
+    setBusy(true);
+    try {
+      const memo = JSON.stringify({
+        app: "ground-relay",
+        v: 1,
+        action: "deliver",
+        taskId: task.id,
+        worker: walletAddress,
+        evidenceHash: capturedEvidence.sha256,
+      });
+
+      const nextSignature = await sendTransactions([
+        getAddMemoInstruction({ memo }),
+      ]);
+
+      setDeliverySignature(nextSignature.toString());
+      setTask((current) => ({
+        ...current,
+        evidenceHash: capturedEvidence.sha256,
+        status: transition(current.status, "delivered"),
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Evidence submission failed";
+      Alert.alert("Delivery failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function resetDemo() {
     setTask(demoTask);
-    setSignature(undefined);
+    setClaimSignature(undefined);
+    setDeliverySignature(undefined);
+    setCapturedEvidence(undefined);
   }
 
   return (
@@ -141,35 +211,98 @@ function RelayScreen() {
             {criteriaDone} required checks · task {task.id}
           </Text>
 
-          {signature ? (
+          {claimSignature ? (
             <View style={styles.receipt}>
               <Text style={styles.label}>DEVNET CLAIM RECEIPT</Text>
               <Text selectable style={styles.receiptText}>
-                {signature}
+                {claimSignature}
               </Text>
             </View>
           ) : null}
 
-          <Pressable
-            style={[
-              styles.primaryButton,
-              (!canClaim || busy) && styles.disabled,
-            ]}
-            disabled={!canClaim || busy}
-            onPress={claimTask}
-          >
-            {busy ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {task.status === "open"
-                  ? walletAddress
+          {task.status === "open" ? (
+            <Pressable
+              style={[
+                styles.primaryButton,
+                (!canClaim || busy) && styles.disabled,
+              ]}
+              disabled={!canClaim || busy}
+              onPress={claimTask}
+            >
+              {busy ? (
+                <ActivityIndicator />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  {walletAddress
                     ? "Claim on Solana devnet"
-                    : "Connect wallet to claim"
-                  : "Task claimed"}
+                    : "Connect wallet to claim"}
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {task.status === "claimed" ? (
+            <>
+              {capturedEvidence ? (
+                <View style={styles.evidenceCard}>
+                  <Image
+                    source={{ uri: capturedEvidence.uri }}
+                    style={styles.evidenceImage}
+                  />
+                  <View style={styles.evidenceMeta}>
+                    <Text style={styles.label}>EVIDENCE SHA-256</Text>
+                    <Text selectable style={styles.hashText}>
+                      {capturedEvidence.sha256}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {capturedEvidence.width}×{capturedEvidence.height}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <Pressable
+                style={[styles.secondaryAction, busy && styles.disabled]}
+                disabled={!canCapture || busy}
+                onPress={captureEvidence}
+              >
+                <Text style={styles.secondaryActionText}>
+                  {capturedEvidence ? "Retake evidence photo" : "Capture evidence photo"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  (!canSubmit || busy) && styles.disabled,
+                ]}
+                disabled={!canSubmit || busy}
+                onPress={submitEvidence}
+              >
+                {busy ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    Anchor delivery on Solana devnet
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          ) : null}
+
+          {task.status === "delivered" && task.evidenceHash ? (
+            <View style={styles.receipt}>
+              <Text style={styles.label}>DELIVERY ANCHORED</Text>
+              <Text style={styles.receiptText}>
+                evidence {shortHash(task.evidenceHash)}
               </Text>
-            )}
-          </Pressable>
+              {deliverySignature ? (
+                <Text selectable style={styles.receiptText}>
+                  {deliverySignature}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           {task.status !== "open" ? (
             <Pressable style={styles.resetButton} onPress={resetDemo}>
@@ -179,7 +312,8 @@ function RelayScreen() {
         </View>
 
         <Text style={styles.footer}>
-          Next: evidence capture → verification → escrow payout → agent resume
+          Built path: wallet → claim → camera evidence → content hash → delivery receipt.
+          Next: verifier acceptance → escrow payout → agent resume.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -338,6 +472,38 @@ const styles = StyleSheet.create({
     color: "#071109",
     fontSize: 15,
     fontWeight: "900",
+  },
+  secondaryAction: {
+    alignItems: "center",
+    borderColor: "#4f6d59",
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  secondaryActionText: {
+    color: "#baf9ce",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  evidenceCard: {
+    backgroundColor: "#0a100c",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  evidenceImage: {
+    height: 220,
+    width: "100%",
+  },
+  evidenceMeta: {
+    gap: 6,
+    padding: 12,
+  },
+  hashText: {
+    color: "#9bd8ac",
+    fontFamily: "monospace",
+    fontSize: 10,
   },
   disabled: {
     opacity: 0.45,
