@@ -73,3 +73,34 @@ Fix applied at this checkpoint:
 - pinned `react-native-nitro-modules` to `0.36.5`
 
 These versions follow the Solana Mobile Expo Kit template compatibility line. Next action: let CI rebuild the standalone APK, install that artifact, and verify startup before changing application logic.
+
+
+## Checkpoint — 2026-09-25 18:15 BRT
+
+Android device validation is now successful through the memo-backed delivery flow.
+
+Confirmed on a physical Android device:
+- standalone APK starts without the AsyncStorage crash
+- Solflare connects through Mobile Wallet Adapter
+- worker address is returned to Ground Relay
+- claim memo was signed and confirmed on Solana devnet
+- camera evidence capture works
+- SHA-256 evidence hashing works on-device
+- delivery memo was signed and confirmed on Solana devnet
+- app advances from OPEN -> CLAIMED -> DELIVERED and displays both receipts
+
+Devnet proof transactions:
+- claim: `23My4fQYQy3vp6YpkSPRfLFBMqkLuusmZJFN92pGB9mjjATAwKSamXjQVZxT8Giy3Ekii8QLeT8SofRzavKc3BTy`
+- delivery: `5hycogT2MMUKfnXTuYgS1jgzvP6atyeBAEsEoEzpjGdFYUD4dXzB53EfUPHnqA6xwzVkLtw6krRwStDQyQKvEQGN`
+
+Anchor escrow progress:
+- Rust workspace manifest added at repository root
+- dedicated Anchor CI now compiles the program
+- 5 transition-guard tests pass for claim, evidence submission, acceptance, release and cancellation
+- SBF + IDL artifact workflow has been added and is the current build target
+
+Important limitation:
+- the Android flow is still memo-backed; the displayed 1.00 USDC is not yet a real escrow payout
+- do not replace the proven memo flow until the Anchor program has a reproducible SBF/IDL build and a safely controlled devnet deployment identity
+
+Next action: finish the SBF + IDL CI build, then prepare integration/deployment without committing or exposing any private program or wallet keys.
