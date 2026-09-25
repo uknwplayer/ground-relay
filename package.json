@@ -1,0 +1,28 @@
+{
+  "name": "ground-relay",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "latest",
+    "@solana-program/memo": "latest",
+    "@solana/kit": "latest",
+    "@wallet-ui/react-native-kit": "latest",
+    "expo": "latest",
+    "expo-dev-client": "latest",
+    "expo-status-bar": "latest",
+    "react": "latest",
+    "react-native": "latest",
+    "react-native-nitro-modules": "latest",
+    "react-native-quick-crypto": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "typescript": "latest"
+  }
+}
