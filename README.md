@@ -8,14 +8,40 @@ Autonomous agents can stall when a workflow needs a human-only, device-local, or
 
 `agent blocked -> task posted -> worker claims -> evidence submitted -> verified -> paid -> agent resumes`
 
-## Project control
+## Documentation guide
 
-- [Product anatomy & operating model](docs/product-anatomy.md)
-- [Execution roadmap](docs/roadmap.md)
-- [Current checkpoint](docs/checkpoints/CURRENT.md)
-- [Checkpoint policy and archive](docs/checkpoints/README.md)
+This repository keeps product explanation, technical design, execution planning, and continuity records separate so a reviewer can understand the project without reconstructing context from commit history or private conversations.
 
-The roadmap defines the path to completion. `CURRENT.md` is the canonical handoff point for continuing work without reconstructing project state from chat history.
+### Start here
+
+| Document | Best for | What it explains |
+| --- | --- | --- |
+| **[Product Anatomy & Operating Model](docs/product-anatomy.md)** | Evaluators, judges, new contributors | The clearest end-to-end explanation of Ground Relay: purpose, actors, architecture, connections, money flow, evidence flow, trust boundaries, failure paths, real-world use cases, current proof points, and what is still under integration. |
+| **[Execution Roadmap](docs/roadmap.md)** | Evaluators and contributors | Every milestone from the completed prototype work through real escrow settlement, agent resume, product hardening, release APK, demo video, pitch deck, and final submission. |
+| **[Current Checkpoint](docs/checkpoints/CURRENT.md)** | Anyone continuing the work | Canonical handoff state: what is verified, exact public IDs/signatures that matter, current blocker, known limitations, what must not be repeated, and the single next recommended action. |
+
+### Product and architecture
+
+| Document | Purpose |
+| --- | --- |
+| **[Architecture](docs/architecture.md)** | Short technical overview of the mobile app, Agent Gateway, Solana layer, state flow, and security model. |
+| **[Escrow Protocol](docs/escrow-protocol.md)** | Detailed on-chain design: task/vault PDAs, state machine, Anchor instructions, settlement rules, and escrow security properties. |
+| **[Agent Gateway OpenAPI](docs/openapi.yaml)** | Machine-readable API contract for task creation, status, deliveries, verification, and agent-facing integration. |
+| **[Demo Script](docs/demo-script.md)** | Concise demonstration flow for presenting the product and its human-in-the-loop loop. |
+
+### Project continuity and audit trail
+
+| Document | Purpose |
+| --- | --- |
+| **[Checkpoint Guide](docs/checkpoints/README.md)** | Defines how checkpoints are written, archived, and kept free of secrets. |
+| **[Checkpoint Archive](docs/checkpoints/archive/)** | Historical milestone handoffs used to preserve important previous states without cluttering the main README. |
+| **[Current Checkpoint](docs/checkpoints/CURRENT.md)** | The only checkpoint that should be treated as the current source of truth. |
+
+### Suggested reading order for an evaluator
+
+`Product Anatomy -> Roadmap -> Architecture -> Escrow Protocol -> Current Checkpoint`
+
+That sequence starts with the product thesis, then shows the path to completion, the system design, the settlement mechanics, and finally the exact live state of the project.
 
 ## Current status
 
@@ -28,13 +54,15 @@ Ground Relay has a working physical-Android prototype with:
 - devnet delivery receipt
 - visible claim/delivery signatures and task progression
 
-The custom Anchor escrow program now compiles, passes transition-guard tests, produces reproducible SBF + IDL artifacts, and has a controlled devnet deployment identity.
+The custom Anchor escrow program compiles, passes transition-guard tests, produces reproducible SBF + IDL artifacts, and uses a controlled devnet deployment identity.
 
 Controlled devnet program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-The current milestone is the first real Anchor deployment to devnet. The proven mobile claim/delivery path is still memo-backed until the Anchor integration milestone is complete.
+The first guarded Anchor deployment reached **Deploy success** and initialized IDL metadata. The workflow later failed only in its post-deploy verification command because that CLI invocation expected a default signer. Independent signer-free verification of the deployed program account is therefore the current M3 task before the project advances to a real funded escrow task.
+
+The proven Android claim/delivery path is still memo-backed until direct Anchor integration is completed.
 
 ## Devnet prototype receipts
 
