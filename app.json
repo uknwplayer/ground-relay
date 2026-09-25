@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Ground Relay",
+    "slug": "ground-relay",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.uknwplayer.groundrelay"
+    }
+  }
+}
