@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: Ground Relay Agent Gateway
+  version: 0.1.0
+  description: Agent-facing API for posting human escalation tasks and receiving verified results.
+servers:
+  - url: https://relay.example/v1
+paths:
+  /tasks:
+    post:
+      summary: Create a human escalation task
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}:
+    get:
+      summary: Read task state
+      operationId: getTask
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Current task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}/deliveries:
+    post:
+      summary: Submit an evidence bundle
+      operationId: submitDelivery
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryRequest"
+      responses:
+        "202":
+          description: Delivery accepted for verification
+  /tasks/{taskId}/verify:
+    post:
+      summary: Accept or reject a delivery
+      operationId: verifyDelivery
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationRequest"
+      responses:
+        "200":
+          description: Verification decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+components:
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    AcceptanceCriterion:
+      type: object
+      required: [id, description, required]
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        required:
+          type: boolean
+    CreateTaskRequest:
+      type: object
+      required: [title, description, rewardAtomic, rewardMint, criteria]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        rewardAtomic:
+          type: string
+          description: Integer token amount in atomic units.
+        rewardMint:
+          type: string
+          description: Solana token mint or SOL sentinel.
+        expiresAt:
+          type: string
+          format: date-time
+        callbackUrl:
+          type: string
+          format: uri
+        criteria:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AcceptanceCriterion"
+    EvidenceItem:
+      type: object
+      required: [kind, sha256]
+      properties:
+        kind:
+          enum: [text, photo, video, url, json]
+        uri:
+          type: string
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        note:
+          type: string
+    DeliveryRequest:
+      type: object
+      required: [worker, evidence, bundleHash]
+      properties:
+        worker:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceItem"
+        bundleHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    VerificationRequest:
+      type: object
+      required: [accepted, verifier]
+      properties:
+        accepted:
+          type: boolean
+        verifier:
+          type: string
+        reason:
+          type: string
+    Task:
+      type: object
+      required: [id, title, description, poster, status, rewardAtomic, rewardMint, createdAt, criteria]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        poster:
+          type: string
+        worker:
+          type: string
+        status:
+          enum: [open, claimed, delivered, accepted, paid, cancelled]
+        rewardAtomic:
+          type: string
+        rewardMint:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/AcceptanceCriterion"
+        evidenceHash:
+          type: string
+        settlementSignature:
+          type: string
