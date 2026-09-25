@@ -25,4 +25,4 @@ jobs:
           test "$PROGRAM_ID" = "$ANCHOR_ID"
 
           RESPONSE="$(curl -sS https://api.devnet.solana.com -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$PROGRAM_ID\",{\"encoding\":\"base64\"}]}")"
-          RESPONSE="$RESPONSE" PROGRAM_ID="$PROGRAM_ID" python3 -c 'import json,os; d=json.loads(os.environ["RESPONSE"]); v=d.get("result",{}).get("value"); print("Program ID:",os.environ["PROGRAM_ID"]); print("Devnet account: ABSENT" if v is None else "Devnet account: PRESENT"); print("" if v is None else f"Owner: {v.get(\"owner\")}\nExecutable: {v.get(\"executable\")}\nLamports: {v.get(\"lamports\")}")'
+          RESPONSE="$RESPONSE" PROGRAM_ID="$PROGRAM_ID" python3 -c 'import json,os; d=json.loads(os.environ["RESPONSE"]); v=d.get("result",{}).get("value"); print("Program ID:",os.environ["PROGRAM_ID"]); print("Devnet account: ABSENT" if v is None else "Devnet account: PRESENT"); print("" if v is None else "Owner: {}\\nExecutable: {}\\nLamports: {}".format(v.get("owner"),v.get("executable"),v.get("lamports")))'
