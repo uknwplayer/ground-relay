@@ -3,7 +3,29 @@ name: CI
 on:
   push:
     branches: ["main"]
+    paths:
+      - "App.tsx"
+      - "app.json"
+      - "index.js"
+      - "polyfill.js"
+      - "package.json"
+      - "tsconfig.json"
+      - "src/**"
+      - ".github/workflows/ci.yml"
   pull_request:
+    paths:
+      - "App.tsx"
+      - "app.json"
+      - "index.js"
+      - "polyfill.js"
+      - "package.json"
+      - "tsconfig.json"
+      - "src/**"
+      - ".github/workflows/ci.yml"
+
+concurrency:
+  group: typecheck-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   typecheck:
