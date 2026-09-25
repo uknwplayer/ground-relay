@@ -21,10 +21,6 @@ jobs:
       - run: npm install
       - name: Generate Android project
         run: CI=1 npx expo prebuild --platform android
-      - name: Align Gradle wrapper with Android Gradle Plugin
-        run: |
-          sed -i 's/gradle-9\.3\.1-bin\.zip/gradle-9.4.1-bin.zip/' android/gradle/wrapper/gradle-wrapper.properties
-          cat android/gradle/wrapper/gradle-wrapper.properties
       - name: Build debug APK
         run: |
           cd android
