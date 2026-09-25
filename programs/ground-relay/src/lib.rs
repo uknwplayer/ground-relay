@@ -59,11 +59,7 @@ pub mod ground_relay {
 
     pub fn claim_task(ctx: Context<ClaimTask>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        require!(task.status == TaskStatus::Open, RelayError::InvalidStatus);
-        require!(
-            Clock::get()?.unix_timestamp < task.expires_at,
-            RelayError::TaskExpired
-        );
+        validate_claim(task, Clock::get()?.unix_timestamp)?;
 
         task.worker = ctx.accounts.worker.key();
         task.status = TaskStatus::Claimed;
@@ -81,19 +77,7 @@ pub mod ground_relay {
         evidence_hash: [u8; 32],
     ) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        require!(
-            task.status == TaskStatus::Claimed,
-            RelayError::InvalidStatus
-        );
-        require_keys_eq!(
-            task.worker,
-            ctx.accounts.worker.key(),
-            RelayError::WrongWorker
-        );
-        require!(
-            evidence_hash != [0; 32],
-            RelayError::InvalidEvidenceHash
-        );
+        validate_submit(task, ctx.accounts.worker.key(), evidence_hash)?;
 
         task.evidence_hash = evidence_hash;
         task.status = TaskStatus::Delivered;
@@ -109,15 +93,7 @@ pub mod ground_relay {
 
     pub fn accept_task(ctx: Context<AcceptTask>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        require!(
-            task.status == TaskStatus::Delivered,
-            RelayError::InvalidStatus
-        );
-        require_keys_eq!(
-            task.poster,
-            ctx.accounts.poster.key(),
-            RelayError::WrongPoster
-        );
+        validate_accept(task, ctx.accounts.poster.key())?;
 
         task.status = TaskStatus::Accepted;
 
@@ -131,24 +107,12 @@ pub mod ground_relay {
 
     pub fn release_payment(ctx: Context<ReleasePayment>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        require!(
-            task.status == TaskStatus::Accepted,
-            RelayError::InvalidStatus
-        );
-        require_keys_eq!(
-            task.worker,
+        validate_release(
+            task,
             ctx.accounts.worker.key(),
-            RelayError::WrongWorker
-        );
-        require_keys_eq!(
-            task.mint,
             ctx.accounts.mint.key(),
-            RelayError::WrongMint
-        );
-        require!(
-            ctx.accounts.vault.amount >= task.reward_amount,
-            RelayError::EscrowUnderfunded
-        );
+            ctx.accounts.vault.amount,
+        )?;
 
         let poster_key = task.poster;
         let task_id = task.task_id;
@@ -188,16 +152,11 @@ pub mod ground_relay {
 
     pub fn cancel_open_task(ctx: Context<CancelOpenTask>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        require!(task.status == TaskStatus::Open, RelayError::InvalidStatus);
-        require_keys_eq!(
-            task.poster,
+        validate_cancel(
+            task,
             ctx.accounts.poster.key(),
-            RelayError::WrongPoster
-        );
-        require!(
-            ctx.accounts.vault.amount >= task.reward_amount,
-            RelayError::EscrowUnderfunded
-        );
+            ctx.accounts.vault.amount,
+        )?;
 
         let poster_key = task.poster;
         let task_id = task.task_id;
@@ -229,6 +188,67 @@ pub mod ground_relay {
 
         Ok(())
     }
+}
+
+fn validate_claim(task: &TaskEscrow, now: i64) -> Result<()> {
+    require!(task.status == TaskStatus::Open, RelayError::InvalidStatus);
+    require!(now < task.expires_at, RelayError::TaskExpired);
+    Ok(())
+}
+
+fn validate_submit(
+    task: &TaskEscrow,
+    worker: Pubkey,
+    evidence_hash: [u8; 32],
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Claimed,
+        RelayError::InvalidStatus
+    );
+    require_keys_eq!(task.worker, worker, RelayError::WrongWorker);
+    require!(
+        evidence_hash != [0; 32],
+        RelayError::InvalidEvidenceHash
+    );
+    Ok(())
+}
+
+fn validate_accept(task: &TaskEscrow, poster: Pubkey) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Delivered,
+        RelayError::InvalidStatus
+    );
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    Ok(())
+}
+
+fn validate_release(
+    task: &TaskEscrow,
+    worker: Pubkey,
+    mint: Pubkey,
+    vault_amount: u64,
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Accepted,
+        RelayError::InvalidStatus
+    );
+    require_keys_eq!(task.worker, worker, RelayError::WrongWorker);
+    require_keys_eq!(task.mint, mint, RelayError::WrongMint);
+    require!(
+        vault_amount >= task.reward_amount,
+        RelayError::EscrowUnderfunded
+    );
+    Ok(())
+}
+
+fn validate_cancel(task: &TaskEscrow, poster: Pubkey, vault_amount: u64) -> Result<()> {
+    require!(task.status == TaskStatus::Open, RelayError::InvalidStatus);
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    require!(
+        vault_amount >= task.reward_amount,
+        RelayError::EscrowUnderfunded
+    );
+    Ok(())
 }
 
 #[derive(Accounts)]
@@ -451,4 +471,85 @@ pub enum RelayError {
     InvalidEvidenceHash,
     #[msg("Escrow vault is underfunded")]
     EscrowUnderfunded,
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const REWARD: u64 = 1_000_000;
+
+    fn key(byte: u8) -> Pubkey {
+        Pubkey::new_from_array([byte; 32])
+    }
+
+    fn sample_task(status: TaskStatus) -> TaskEscrow {
+        TaskEscrow {
+            task_id: [9; 32],
+            poster: key(2),
+            worker: key(1),
+            mint: key(3),
+            reward_amount: REWARD,
+            expires_at: 200,
+            status,
+            evidence_hash: [0; 32],
+            bump: 255,
+            vault_bump: 254,
+        }
+    }
+
+    #[test]
+    fn claim_requires_open_unexpired_task() {
+        let open = sample_task(TaskStatus::Open);
+        assert!(validate_claim(&open, 199).is_ok());
+        assert!(validate_claim(&open, 200).is_err());
+
+        let claimed = sample_task(TaskStatus::Claimed);
+        assert!(validate_claim(&claimed, 199).is_err());
+    }
+
+    #[test]
+    fn submit_requires_assigned_worker_and_nonzero_evidence() {
+        let claimed = sample_task(TaskStatus::Claimed);
+        assert!(validate_submit(&claimed, key(1), [7; 32]).is_ok());
+        assert!(validate_submit(&claimed, key(4), [7; 32]).is_err());
+        assert!(validate_submit(&claimed, key(1), [0; 32]).is_err());
+
+        let open = sample_task(TaskStatus::Open);
+        assert!(validate_submit(&open, key(1), [7; 32]).is_err());
+    }
+
+    #[test]
+    fn accept_requires_delivery_and_original_poster() {
+        let delivered = sample_task(TaskStatus::Delivered);
+        assert!(validate_accept(&delivered, key(2)).is_ok());
+        assert!(validate_accept(&delivered, key(4)).is_err());
+
+        let claimed = sample_task(TaskStatus::Claimed);
+        assert!(validate_accept(&claimed, key(2)).is_err());
+    }
+
+    #[test]
+    fn release_requires_accepted_task_worker_mint_and_funding() {
+        let accepted = sample_task(TaskStatus::Accepted);
+        assert!(validate_release(&accepted, key(1), key(3), REWARD).is_ok());
+        assert!(validate_release(&accepted, key(4), key(3), REWARD).is_err());
+        assert!(validate_release(&accepted, key(1), key(4), REWARD).is_err());
+        assert!(validate_release(&accepted, key(1), key(3), REWARD - 1).is_err());
+
+        let delivered = sample_task(TaskStatus::Delivered);
+        assert!(validate_release(&delivered, key(1), key(3), REWARD).is_err());
+    }
+
+    #[test]
+    fn cancel_requires_open_task_poster_and_funding() {
+        let open = sample_task(TaskStatus::Open);
+        assert!(validate_cancel(&open, key(2), REWARD).is_ok());
+        assert!(validate_cancel(&open, key(4), REWARD).is_err());
+        assert!(validate_cancel(&open, key(2), REWARD - 1).is_err());
+
+        let claimed = sample_task(TaskStatus::Claimed);
+        assert!(validate_cancel(&claimed, key(2), REWARD).is_err());
+    }
 }
