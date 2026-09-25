@@ -2,38 +2,49 @@
 
 Ground Relay is a mobile-first human escalation network for autonomous agents, built for **CLOCK IN — A Solana Mobile Hackathon**.
 
-Autonomous agents can stall when a workflow needs a human-only, device-local, or real-world action. Ground Relay turns that blocker into a structured microtask, lets an Android/Seeker user claim it, capture evidence, and receive a Solana payout after verification. The originating agent then resumes automatically.
+Autonomous agents can stall when a workflow needs a human-only, device-local, or real-world action. Ground Relay turns that blocker into a structured microtask, lets an Android/Seeker user claim it, capture evidence, and receive a Solana payout after verification. The originating agent can then resume automatically.
 
 ## Core loop
 
-`agent blocked → task posted → worker claims → evidence submitted → verified → paid → agent resumes`
+`agent blocked -> task posted -> worker claims -> evidence submitted -> verified -> paid -> agent resumes`
 
-## Hackathon target
+## Project control
 
-- Android APK
-- Mobile Wallet Adapter
-- Solana devnet task receipts and settlement
-- Public source
-- Demo video
-- Short pitch deck
-- Optional SKR-backed reputation
+- [Execution roadmap](docs/roadmap.md)
+- [Current checkpoint](docs/checkpoints/CURRENT.md)
+- [Checkpoint policy and archive](docs/checkpoints/README.md)
+
+The roadmap defines the path to completion. `CURRENT.md` is the canonical handoff point for continuing work without reconstructing project state from chat history.
 
 ## Current status
 
-This repository contains the first mobile bootstrap:
+Ground Relay has a working physical-Android prototype with:
 
-- React Native / Expo Android app shell
-- Solana Mobile Wallet Adapter provider
-- Wallet connect/disconnect
-- Devnet claim receipt using a Solana memo transaction
-- Local task state progression for demo development
-- Shared task protocol types and state machine
+- Solana Mobile Wallet Adapter connection through Solflare
+- devnet claim receipt
+- camera evidence capture
+- SHA-256 evidence hashing
+- devnet delivery receipt
+- visible claim/delivery signatures and task progression
 
-The next milestone replaces the memo-only claim receipt with the escrow/task program.
+The custom Anchor escrow program now compiles, passes transition-guard tests, produces reproducible SBF + IDL artifacts, and has a controlled devnet deployment identity.
+
+Controlled devnet program ID:
+
+`6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+
+The current milestone is the first real Anchor deployment to devnet. The proven mobile claim/delivery path is still memo-backed until the Anchor integration milestone is complete.
+
+## Devnet prototype receipts
+
+- claim: `23My4fQYQy3vp6YpkSPRfLFBMqkLuusmZJFN92pGB9mjjATAwKSamXjQVZxT8Giy3Ekii8QLeT8SofRzavKc3BTy`
+- delivery: `5hycogT2MMUKfnXTuYgS1jgzvP6atyeBAEsEoEzpjGdFYUD4dXzB53EfUPHnqA6xwzVkLtw6krRwStDQyQKvEQGN`
+
+These prove the prototype receipt flow. They are not evidence of a custom-program escrow payout.
 
 ## Run locally
 
-Ground Relay uses Solana Mobile native modules, so **Expo Go is not sufficient**. Use an Android emulator/device and a custom development build.
+Ground Relay uses Solana Mobile native modules, so **Expo Go is not sufficient**. Use an Android emulator/device and a native build.
 
 ```bash
 npm install
@@ -45,62 +56,11 @@ Install an MWA-compatible development wallet on the Android device/emulator befo
 ## Security
 
 - Development defaults to Solana devnet.
-- Never commit private keys, seed phrases, wallet secrets, or auth tokens.
-- Evidence payloads stay off-chain. Only hashes/receipts/state references should be committed on-chain.
+- Never commit private keys, seed phrases, wallet secrets, GitHub Secrets, or auth tokens.
+- Evidence payloads stay off-chain. Only hashes, receipts, and state references should be committed on-chain.
 - The worker does not need to post a deposit to participate.
+- Deployment identities must remain stable unless there is a deliberate migration.
 
 ## License
 
 MIT
-
-
-## Checkpoint — 2026-09-25 15:12 BRT
-
-Current Android standalone APK reaches the Ground Relay app, but crashes at startup inside `@wallet-ui/react-native-kit` / `MobileWalletProvider`.
-
-Observed device error:
-- `NativeModule: AsyncStorage is null`
-- stack passes through `facebook::react::jni::JniException` and React Native startup.
-
-Evidence from the release build shows AsyncStorage was autolinked and compiled, so the current working hypothesis is a native compatibility/version mismatch rather than a missing npm install.
-
-Fix applied at this checkpoint:
-- pinned `@react-native-async-storage/async-storage` to `2.2.0`
-- pinned `@wallet-ui/react-native-kit` to `4.2.1`
-- pinned `@solana-program/memo` to `0.12.0`
-- pinned `@solana/kit` to `7.0.0`
-- pinned `react-native-quick-crypto` to `1.1.6`
-- pinned `react-native-nitro-modules` to `0.36.5`
-
-These versions follow the Solana Mobile Expo Kit template compatibility line. Next action: let CI rebuild the standalone APK, install that artifact, and verify startup before changing application logic.
-
-
-## Checkpoint — 2026-09-25 18:15 BRT
-
-Android device validation is now successful through the memo-backed delivery flow.
-
-Confirmed on a physical Android device:
-- standalone APK starts without the AsyncStorage crash
-- Solflare connects through Mobile Wallet Adapter
-- worker address is returned to Ground Relay
-- claim memo was signed and confirmed on Solana devnet
-- camera evidence capture works
-- SHA-256 evidence hashing works on-device
-- delivery memo was signed and confirmed on Solana devnet
-- app advances from OPEN -> CLAIMED -> DELIVERED and displays both receipts
-
-Devnet proof transactions:
-- claim: `23My4fQYQy3vp6YpkSPRfLFBMqkLuusmZJFN92pGB9mjjATAwKSamXjQVZxT8Giy3Ekii8QLeT8SofRzavKc3BTy`
-- delivery: `5hycogT2MMUKfnXTuYgS1jgzvP6atyeBAEsEoEzpjGdFYUD4dXzB53EfUPHnqA6xwzVkLtw6krRwStDQyQKvEQGN`
-
-Anchor escrow progress:
-- Rust workspace manifest added at repository root
-- dedicated Anchor CI now compiles the program
-- 5 transition-guard tests pass for claim, evidence submission, acceptance, release and cancellation
-- SBF + IDL artifact workflow has been added and is the current build target
-
-Important limitation:
-- the Android flow is still memo-backed; the displayed 1.00 USDC is not yet a real escrow payout
-- do not replace the proven memo flow until the Anchor program has a reproducible SBF/IDL build and a safely controlled devnet deployment identity
-
-Next action: finish the SBF + IDL CI build, then prepare integration/deployment without committing or exposing any private program or wallet keys.
