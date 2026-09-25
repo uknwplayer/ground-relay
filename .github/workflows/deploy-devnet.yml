@@ -1,0 +1,87 @@
+name: Deploy Anchor program to devnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-DEVNET to authorize a devnet deployment"
+        required: true
+        type: string
+
+concurrency:
+  group: ground-relay-devnet-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm == 'DEPLOY-DEVNET' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: devnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require deployment secrets
+        env:
+          DEPLOYER_B64: ${{ secrets.GROUND_RELAY_DEVNET_DEPLOYER_KEYPAIR_B64 }}
+          PROGRAM_B64: ${{ secrets.GROUND_RELAY_DEVNET_PROGRAM_KEYPAIR_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_B64"
+          test -n "$PROGRAM_B64"
+          umask 077
+          printf '%s' "$DEPLOYER_B64" | base64 --decode > /tmp/ground-relay-deployer.json
+          mkdir -p target/deploy
+          printf '%s' "$PROGRAM_B64" | base64 --decode > target/deploy/ground_relay-keypair.json
+
+      - name: Install Solana CLI 4.1.2
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v4.1.2/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Install stable AVM and Anchor 1.2.0
+        run: |
+          cargo install --git https://github.com/otter-sec/anchor avm --force
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          avm install 1.2.0
+          avm use 1.2.0
+
+      - name: Install SBF platform tools v1.57
+        run: cargo build-sbf --tools-version v1.57 --install-only
+
+      - name: Build program
+        run: anchor build
+
+      - name: Restore controlled program identity
+        env:
+          PROGRAM_B64: ${{ secrets.GROUND_RELAY_DEVNET_PROGRAM_KEYPAIR_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$PROGRAM_B64" | base64 --decode > target/deploy/ground_relay-keypair.json
+
+      - name: Verify program identity before deployment
+        env:
+          GROUND_RELAY_PROGRAM_KEYPAIR: target/deploy/ground_relay-keypair.json
+        run: bash scripts/check-devnet-program-id.sh
+
+      - name: Verify devnet payer
+        run: |
+          solana config set --url https://api.devnet.solana.com >/dev/null
+          echo "Deployer: $(solana address -k /tmp/ground-relay-deployer.json)"
+          solana balance -k /tmp/ground-relay-deployer.json
+
+      - name: Deploy to devnet
+        run: |
+          anchor deploy             --provider.cluster devnet             --provider.wallet /tmp/ground-relay-deployer.json
+
+      - name: Verify deployed program
+        run: |
+          PROGRAM_ID="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' programs/ground-relay/src/lib.rs | head -n1)"
+          solana program show "$PROGRAM_ID" --url https://api.devnet.solana.com
+
+      - name: Remove key material
+        if: always()
+        run: |
+          rm -f /tmp/ground-relay-deployer.json
+          rm -f target/deploy/ground_relay-keypair.json
