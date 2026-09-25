@@ -28,12 +28,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Install Anchor and Solana
-        uses: metadaoproject/setup-anchor@v3.4
-        with:
-          anchor-version: "1.2.0"
-          solana-cli-version: "4.1.2"
-          node-version: "22"
+      - name: Install Solana CLI 4.1.2
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v4.1.2/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install AVM and Anchor 1.2.0
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/otter-sec/anchor/master/avm/install | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          avm install 1.2.0
+          avm use 1.2.0
       - name: Toolchain versions
         run: |
           anchor --version
