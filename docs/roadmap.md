@@ -59,11 +59,11 @@ Controlled devnet program ID:
 ## M3 — First real devnet deployment
 
 - [x] Deploy the Anchor program to devnet
-- [~] Verify the program account is executable at the controlled program ID
+- [x] Verify the program account is executable at the controlled program ID
 - [ ] Record deployment transaction/signature and program metadata
 - [ ] Confirm upgrade authority and deployment ownership
 - [ ] Re-run SBF/IDL build and program CI after deployment if any fix is required
-- [ ] Write a deployment checkpoint
+- [x] Write a deployment checkpoint
 
 **Rule:** do not regenerate the program identity or deployment Secrets merely to fix a deployment error.
 
