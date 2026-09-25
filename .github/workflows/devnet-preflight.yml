@@ -24,23 +24,5 @@ jobs:
           echo "Anchor.toml: $ANCHOR_ID"
           test "$PROGRAM_ID" = "$ANCHOR_ID"
 
-          RESPONSE="$(curl -sS https://api.devnet.solana.com             -H 'content-type: application/json'             -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$PROGRAM_ID\",{\"encoding\":\"base64\"}]}")"
-
-          python3 - "$PROGRAM_ID" "$RESPONSE" <<'PY'
-import json, sys
-program_id, raw = sys.argv[1], sys.argv[2]
-data = json.loads(raw)
-if "error" in data:
-    print("RPC error:", json.dumps(data["error"], sort_keys=True))
-    raise SystemExit(1)
-value = data.get("result", {}).get("value")
-print("Program ID:", program_id)
-if value is None:
-    print("Devnet account: ABSENT")
-else:
-    print("Devnet account: PRESENT")
-    print("Owner:", value.get("owner"))
-    print("Executable:", value.get("executable"))
-    print("Lamports:", value.get("lamports"))
-    print("Data bytes (base64 chars):", len(value.get("data", [""])[0]))
-PY
+          RESPONSE="$(curl -sS https://api.devnet.solana.com -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$PROGRAM_ID\",{\"encoding\":\"base64\"}]}")"
+          RESPONSE="$RESPONSE" PROGRAM_ID="$PROGRAM_ID" python3 -c 'import json,os; d=json.loads(os.environ["RESPONSE"]); v=d.get("result",{}).get("value"); print("Program ID:",os.environ["PROGRAM_ID"]); print("Devnet account: ABSENT" if v is None else "Devnet account: PRESENT"); print("" if v is None else f"Owner: {v.get(\"owner\")}\nExecutable: {v.get(\"executable\")}\nLamports: {v.get(\"lamports\")}")'
