@@ -66,6 +66,32 @@ function RelayScreen() {
     [task.criteria],
   );
 
+  async function connectWallet() {
+    setBusy(true);
+    try {
+      await connect();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Wallet connection failed";
+      Alert.alert("Wallet connection failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectWallet() {
+    setBusy(true);
+    try {
+      await disconnect();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Wallet disconnect failed";
+      Alert.alert("Wallet disconnect failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function claimTask() {
     if (!walletAddress || !canClaim) return;
 
@@ -178,7 +204,7 @@ function RelayScreen() {
           <Pressable
             style={[styles.secondaryButton, busy && styles.disabled]}
             disabled={busy}
-            onPress={walletAddress ? disconnect : connect}
+            onPress={walletAddress ? disconnectWallet : connectWallet}
           >
             <Text style={styles.secondaryButtonText}>
               {walletAddress ? "Disconnect" : "Connect"}
