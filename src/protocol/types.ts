@@ -6,6 +6,8 @@ export type TaskStatus =
   | "paid"
   | "cancelled";
 
+export type EvidenceKind = "text" | "photo" | "video" | "url" | "json";
+
 export interface AcceptanceCriterion {
   id: string;
   description: string;
@@ -25,4 +27,20 @@ export interface RelayTask {
   criteria: AcceptanceCriterion[];
   evidenceHash?: string;
   settlementSignature?: string;
+}
+
+export interface EvidenceItem {
+  kind: EvidenceKind;
+  uri?: string;
+  sha256: string;
+  note?: string;
+}
+
+export interface Delivery {
+  taskId: string;
+  worker: string;
+  submittedAt: string;
+  evidence: EvidenceItem[];
+  bundleHash: string;
+  receiptSignature?: string;
 }
