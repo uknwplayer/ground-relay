@@ -53,6 +53,22 @@ jobs:
           test -f target/deploy/ground_relay.so
           test -f target/idl/ground_relay.json
           ls -lh target/deploy/ground_relay.so target/idl/ground_relay.json
+      - name: Inspect devnet deployment state
+        run: |
+          PROGRAM_ID="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' programs/ground-relay/src/lib.rs | head -n1)"
+          PROGRAM_BYTES="$(wc -c < target/deploy/ground_relay.so)"
+          solana config set --url https://api.devnet.solana.com >/dev/null
+          echo "Program ID: $PROGRAM_ID"
+          echo "SBF bytes: $PROGRAM_BYTES"
+          echo "Rent estimate for $PROGRAM_BYTES bytes:"
+          solana rent "$PROGRAM_BYTES" || true
+          if solana program show "$PROGRAM_ID" >/tmp/ground-relay-program.txt 2>&1; then
+            echo "Devnet status: program account exists"
+            cat /tmp/ground-relay-program.txt
+          else
+            echo "Devnet status: program account not found at declared ID"
+            cat /tmp/ground-relay-program.txt
+          fi
       - name: Upload public build artifacts
         uses: actions/upload-artifact@v4
         with:
