@@ -10,6 +10,7 @@ Autonomous agents can stall when a workflow needs a human-only, device-local, or
 
 ## Project control
 
+- [Product anatomy & operating model](docs/product-anatomy.md)
 - [Execution roadmap](docs/roadmap.md)
 - [Current checkpoint](docs/checkpoints/CURRENT.md)
 - [Checkpoint policy and archive](docs/checkpoints/README.md)
