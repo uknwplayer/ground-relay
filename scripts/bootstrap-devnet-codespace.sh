@@ -22,6 +22,9 @@ if ! gh api repos/uknwplayer/ground-relay/actions/secrets/public-key >/dev/null 
   exit 3
 fi
 
+# Ensure git push uses the same authenticated GitHub CLI identity.
+gh auth setup-git
+
 if ! command -v solana-keygen >/dev/null 2>&1; then
   echo "Installing Solana CLI 4.1.2..."
   sh -c "$(curl -sSfL https://release.anza.xyz/v4.1.2/install)"
