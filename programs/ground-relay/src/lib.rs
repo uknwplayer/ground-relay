@@ -277,6 +277,21 @@ fn validate_exact_credit(before: u64, after: u64, expected: u64) -> Result<()> {
     Ok(())
 }
 
+pub fn is_canonical_task(task_key: Pubkey, task: &TaskEscrow) -> bool {
+    let bump = [task.bump];
+    Pubkey::create_program_address(
+        &[
+            b"task",
+            task.poster.as_ref(),
+            task.task_id.as_ref(),
+            &bump,
+        ],
+        &crate::ID,
+    )
+    .map(|expected| expected == task_key)
+    .unwrap_or(false)
+}
+
 #[derive(Accounts)]
 #[instruction(task_id: [u8; 32])]
 pub struct PostTask<'info> {
@@ -322,7 +337,10 @@ pub struct ClaimTask<'info> {
     #[account(mut)]
     pub worker: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -330,7 +348,10 @@ pub struct ClaimTask<'info> {
 pub struct SubmitEvidence<'info> {
     pub worker: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -338,7 +359,10 @@ pub struct SubmitEvidence<'info> {
 pub struct AcceptTask<'info> {
     pub poster: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -499,6 +523,8 @@ pub enum RelayError {
     EscrowUnderfunded,
     #[msg("Token transfer did not credit the exact expected amount")]
     TokenCreditMismatch,
+    #[msg("Task account is not the canonical PDA for its stored poster and task id")]
+    NonCanonicalTask,
 }
 
 #[cfg(test)]
