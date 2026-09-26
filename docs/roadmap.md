@@ -71,24 +71,24 @@ Controlled devnet program ID:
 
 ## M4 — Real escrow fixture on devnet
 
-- [ ] Select or create a clearly labeled devnet-only SPL payment mint for the demo
-- [ ] Create poster and worker token accounts
-- [ ] Create a real task PDA with `post_task`
-- [ ] Fund the task vault with the reward
-- [ ] Verify task PDA, vault PDA, mint, amount, poster, status, and expiry on-chain
-- [ ] Add a repeatable script or test fixture that recreates the demo task without exposing private keys
+- [x] Select a clearly labeled devnet payment asset for the demo (WSOL)
+- [x] Create poster and worker token accounts
+- [x] Create a real task PDA with `post_task`
+- [x] Fund the task vault with the reward
+- [x] Verify task PDA, vault PDA, mint, amount, poster, status, and expiry on-chain
+- [x] Add a repeatable script/test fixture without exposing private keys
 
 **Exit condition:** an OPEN task exists on-chain with an actually funded escrow vault.
 
 ## M5 — Mobile app -> Anchor integration
 
-- [ ] Generate/use the client from the committed IDL
-- [ ] Read the real task account from devnet
-- [ ] Replace the memo-backed mobile claim with real `claim_task`
-- [ ] Keep camera evidence off-chain and submit its SHA-256 through `submit_evidence`
-- [ ] Hydrate app status from the on-chain task instead of local-only state
-- [ ] Display real Anchor transaction receipts
-- [ ] Add network/program mismatch guards
+- [x] Commit the deployed IDL and guard the Kit client against IDL drift
+- [~] Read the real task account from devnet on Android (implemented; physical validation pending)
+- [~] Replace the memo-backed mobile claim with real `claim_task` (implemented; physical validation pending)
+- [~] Keep camera evidence off-chain and submit its SHA-256 through `submit_evidence` (implemented; physical validation pending)
+- [~] Hydrate app status from the on-chain task instead of local-only state (implemented; physical validation pending)
+- [~] Display real Anchor transaction receipts (implemented; physical validation pending)
+- [~] Add network/program mismatch guards (devnet/program fixed and IDL consistency checked; device validation pending)
 
 **Exit condition:** the physical Android app performs CLAIMED and DELIVERED transitions against the Ground Relay program.
 
