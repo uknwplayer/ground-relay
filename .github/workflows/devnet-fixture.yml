@@ -1,0 +1,64 @@
+name: Create devnet escrow fixture
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/devnet-fixture/**"
+      - ".github/workflows/devnet-fixture.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ground-relay-devnet-fixture
+  cancel-in-progress: false
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: devnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Restore poster keypair
+        env:
+          DEPLOYER_B64: ${{ secrets.GROUND_RELAY_DEVNET_DEPLOYER_KEYPAIR_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_B64"
+          umask 077
+          printf '%s' "$DEPLOYER_B64" | base64 --decode > /tmp/ground-relay-poster.json
+
+      - name: Install Solana CLI 4.1.2
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v4.1.2/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Install stable AVM and Anchor 1.2.0
+        run: |
+          cargo install --git https://github.com/otter-sec/anchor avm --force
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          avm install 1.2.0
+          avm use 1.2.0
+
+      - name: Install SBF platform tools v1.57
+        run: cargo build-sbf --tools-version v1.57 --install-only
+
+      - name: Build IDL
+        run: anchor build
+
+      - name: Install fixture client dependencies
+        run: npm install --prefix scripts/devnet-fixture --no-audit --no-fund
+
+      - name: Create or verify funded escrow fixture
+        env:
+          POSTER_KEYPAIR: /tmp/ground-relay-poster.json
+        run: node scripts/devnet-fixture/create-fixture.cjs
+
+      - name: Remove key material
+        if: always()
+        run: rm -f /tmp/ground-relay-poster.json
