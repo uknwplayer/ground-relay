@@ -41,7 +41,7 @@ pub mod ground_relay {
             authority: ctx.accounts.poster.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts),
             reward_amount,
             decimals,
         )?;
@@ -132,7 +132,7 @@ pub mod ground_relay {
             authority: task.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts)
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
@@ -176,7 +176,7 @@ pub mod ground_relay {
             authority: task.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts)
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
