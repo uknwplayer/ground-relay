@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
   title: Ground Relay Agent Gateway
-  version: 0.1.0
-  description: Agent-facing API for posting human escalation tasks and receiving verified results.
+  version: 0.2.0
+  description: >-
+    Non-custodial agent-facing gateway for durable human escalation tasks,
+    verified Solana devnet task binding/synchronization, and idempotent agent
+    resume callbacks after authoritative PAID settlement.
 servers:
   - url: https://relay.example/v1
 paths:
   /tasks:
     post:
-      summary: Create a human escalation task
+      summary: Create a durable human escalation task
       operationId: createTask
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -18,27 +23,141 @@ paths:
               $ref: "#/components/schemas/CreateTaskRequest"
       responses:
         "201":
-          description: Task created
+          description: Task created, or the original task returned for an identical idempotent request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /tasks/{taskId}:
     get:
-      summary: Read task state
+      summary: Read durable task state
       operationId: getTask
       parameters:
         - $ref: "#/components/parameters/TaskId"
       responses:
         "200":
-          description: Current task
+          description: Current durable task
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Task"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /tasks/{taskId}/chain-binding:
+    put:
+      summary: Bind an external task ID to a verified Ground Relay devnet task PDA
+      operationId: bindTask
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChainBindingRequest"
+      responses:
+        "200":
+          description: Binding verified and persisted, or identical existing binding returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ChainUnavailable"
+  /tasks/{taskId}/sync:
+    post:
+      summary: Reconcile a bound task against authoritative Solana state
+      operationId: syncTask
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task synchronized from chain.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ChainUnavailable"
+  /tasks/{taskId}/paid:
+    post:
+      summary: Reconcile a candidate settlement and attempt the agent resume callback
+      description: >-
+        This endpoint does not mark a task paid by client assertion. The gateway
+        first reads the bound Ground Relay account and requires authoritative
+        on-chain PAID state before accepting the settlement signature and creating
+        the single logical resume event.
+      operationId: notifyPaid
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaidNotificationRequest"
+      responses:
+        "200":
+          description: Settlement confirmed; resume event is delivered or durably tracked for retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ChainUnavailable"
+  /tasks/{taskId}/resume/retry:
+    post:
+      summary: Retry an existing undelivered PAID resume event
+      operationId: retryResume
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Existing event retried, or already-delivered state returned without resending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /tasks/{taskId}/claim:
+    post:
+      summary: Legacy unbound local-protocol claim transition
+      description: Bound tasks reject this route with chain_authoritative.
+      operationId: claimLocalTask
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimRequest"
+      responses:
+        "200":
+          description: Local unbound task claimed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /tasks/{taskId}/deliveries:
     post:
-      summary: Submit an evidence bundle
+      summary: Legacy unbound local-protocol evidence transition
+      description: Bound tasks reject this route with chain_authoritative.
       operationId: submitDelivery
       parameters:
         - $ref: "#/components/parameters/TaskId"
@@ -50,10 +169,19 @@ paths:
               $ref: "#/components/schemas/DeliveryRequest"
       responses:
         "202":
-          description: Delivery accepted for verification
+          description: Local unbound delivery recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /tasks/{taskId}/verify:
     post:
-      summary: Accept or reject a delivery
+      summary: Legacy unbound local-protocol verification transition
+      description: Bound tasks reject this route with chain_authoritative.
       operationId: verifyDelivery
       parameters:
         - $ref: "#/components/parameters/TaskId"
@@ -65,11 +193,15 @@ paths:
               $ref: "#/components/schemas/VerificationRequest"
       responses:
         "200":
-          description: Verification decision recorded
+          description: Local unbound verification decision recorded.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Task"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   parameters:
     TaskId:
@@ -78,7 +210,55 @@ components:
       required: true
       schema:
         type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        Stable client key. Reusing the same key with the same canonical request
+        returns the original task; reusing it for different content returns
+        idempotency_conflict.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request or callback configuration.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Wrong worker or poster for a legacy local transition.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Task not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: State, binding, idempotency, chain identity, or settlement conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ChainUnavailable:
+      description: Solana RPC could not be read; no authoritative transition is invented.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          examples: [invalid_task, task_not_bound, chain_mismatch, settlement_not_confirmed]
     AcceptanceCriterion:
       type: object
       required: [id, description, required]
@@ -91,68 +271,136 @@ components:
           type: boolean
     CreateTaskRequest:
       type: object
-      required: [title, description, rewardAtomic, rewardMint, criteria]
+      required: [title, description, poster, rewardAtomic, rewardMint, callbackUrl, criteria]
       properties:
+        id:
+          type: string
+          description: Optional caller-supplied external task ID.
         title:
           type: string
         description:
           type: string
+        poster:
+          type: string
+          description: Expected public poster address/identity used for chain binding validation.
         rewardAtomic:
           type: string
           description: Integer token amount in atomic units.
         rewardMint:
           type: string
-          description: Solana token mint or SOL sentinel.
+          description: Expected Solana reward mint.
         expiresAt:
           type: string
           format: date-time
         callbackUrl:
           type: string
           format: uri
+          description: Agent endpoint that receives the verified PAID resume event.
         criteria:
           type: array
           minItems: 1
           items:
             $ref: "#/components/schemas/AcceptanceCriterion"
-    EvidenceItem:
+    ChainBindingRequest:
       type: object
-      required: [kind, sha256]
+      required: [cluster, programId, taskPda, postSignature]
       properties:
-        kind:
-          enum: [text, photo, video, url, json]
-        uri:
+        cluster:
+          const: devnet
+        programId:
           type: string
-        sha256:
+          const: 6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap
+        taskPda:
           type: string
-          pattern: "^[a-f0-9]{64}$"
-        note:
+        postSignature:
           type: string
-    DeliveryRequest:
+    ClaimRequest:
       type: object
-      required: [worker, evidence, bundleHash]
+      required: [worker]
       properties:
         worker:
           type: string
-        evidence:
-          type: array
-          items:
-            $ref: "#/components/schemas/EvidenceItem"
+        signature:
+          type: string
+    DeliveryRequest:
+      type: object
+      required: [worker, bundleHash]
+      properties:
+        worker:
+          type: string
         bundleHash:
           type: string
           pattern: "^[a-f0-9]{64}$"
+        signature:
+          type: string
     VerificationRequest:
       type: object
-      required: [accepted, verifier]
+      required: [poster, accepted]
       properties:
+        poster:
+          type: string
         accepted:
           type: boolean
-        verifier:
+    PaidNotificationRequest:
+      type: object
+      required: [signature]
+      properties:
+        signature:
           type: string
-        reason:
+    ChainBinding:
+      type: object
+      required: [cluster, programId, taskPda, postSignature, boundAt, lastSyncedAt]
+      properties:
+        cluster:
+          const: devnet
+        programId:
+          type: string
+        taskPda:
+          type: string
+        postSignature:
+          type: string
+        boundAt:
+          type: string
+          format: date-time
+        lastSyncedAt:
+          type: string
+          format: date-time
+    ResumeState:
+      type: object
+      required: [eventId, idempotencyKey, state, attempts, paidAtObserved]
+      properties:
+        eventId:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        idempotencyKey:
+          type: string
+        state:
+          enum: [pending, delivered, retryable_failure, terminal_failure]
+        attempts:
+          type: integer
+          minimum: 0
+        autoRetriesUsed:
+          type: integer
+          minimum: 0
+        paidAtObserved:
+          type: string
+          format: date-time
+        nextAttemptAt:
+          type: string
+          format: date-time
+        lastAttemptAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        lastStatusCode:
+          type: integer
+        lastError:
           type: string
     Task:
       type: object
-      required: [id, title, description, poster, status, rewardAtomic, rewardMint, createdAt, criteria]
+      required: [id, title, description, poster, status, rewardAtomic, rewardMint, createdAt, criteria, callbackUrl]
       properties:
         id:
           type: string
@@ -173,11 +421,22 @@ components:
         createdAt:
           type: string
           format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        callbackUrl:
+          type: string
+          format: uri
         criteria:
           type: array
           items:
             $ref: "#/components/schemas/AcceptanceCriterion"
+        chain:
+          $ref: "#/components/schemas/ChainBinding"
         evidenceHash:
           type: string
+          pattern: "^[a-f0-9]{64}$"
         settlementSignature:
           type: string
+        resume:
+          $ref: "#/components/schemas/ResumeState"
