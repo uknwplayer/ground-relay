@@ -20,6 +20,7 @@ checks = {
     "TASK_ACCOUNT_DISCRIMINATOR": idl_disc("accounts", "TaskEscrow"),
     "CLAIM_TASK_DISCRIMINATOR": idl_disc("instructions", "claim_task"),
     "SUBMIT_EVIDENCE_DISCRIMINATOR": idl_disc("instructions", "submit_evidence"),
+    "RELEASE_PAYMENT_DISCRIMINATOR": idl_disc("instructions", "release_payment"),
 }
 
 for const_name, expected in checks.items():
