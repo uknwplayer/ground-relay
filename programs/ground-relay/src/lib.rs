@@ -41,7 +41,7 @@ pub mod ground_relay {
             authority: ctx.accounts.poster.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts),
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
             reward_amount,
             decimals,
         )?;
@@ -132,7 +132,7 @@ pub mod ground_relay {
             authority: task.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts)
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
@@ -176,7 +176,7 @@ pub mod ground_relay {
             authority: task.to_account_info(),
         };
         token_interface::transfer_checked(
-            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts)
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
@@ -473,7 +473,6 @@ pub enum RelayError {
     EscrowUnderfunded,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -551,5 +550,12 @@ mod tests {
 
         let claimed = sample_task(TaskStatus::Claimed);
         assert!(validate_cancel(&claimed, key(2), REWARD).is_err());
+    }
+
+    #[test]
+    fn exact_credit_requires_full_advertised_amount() {
+        assert!(validate_exact_credit(100, 1_100, 1_000).is_ok());
+        assert!(validate_exact_credit(100, 1_099, 1_000).is_err());
+        assert!(validate_exact_credit(100, 1_101, 1_000).is_err());
     }
 }
