@@ -2,7 +2,7 @@ name: Gateway check
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "m7-agent-gateway-resume"]
     paths:
       - "gateway/**"
       - ".github/workflows/gateway-check.yml"
@@ -23,5 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Generate dependency lock for M7 branch
+        run: npm install
+        working-directory: gateway
+      - name: Print generated lockfile
+        run: cat package-lock.json
+        working-directory: gateway
       - run: npm test
         working-directory: gateway
