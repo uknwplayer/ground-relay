@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
-    self, Mint, TokenAccount, TokenInterface, TransferChecked,
+    self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 
 declare_id!("6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap");
@@ -215,6 +215,43 @@ pub mod ground_relay {
 
         Ok(())
     }
+
+    pub fn close_terminal_vault(ctx: Context<CloseTerminalVault>) -> Result<()> {
+        let task = &ctx.accounts.task;
+        validate_terminal_vault_close(
+            task,
+            ctx.accounts.poster.key(),
+            ctx.accounts.vault.amount,
+        )?;
+
+        let poster_key = task.poster;
+        let task_id = task.task_id;
+        let bump = [task.bump];
+        let signer_seeds: &[&[u8]] = &[
+            b"task",
+            poster_key.as_ref(),
+            task_id.as_ref(),
+            &bump,
+        ];
+        let signer = &[signer_seeds];
+
+        let cpi_accounts = CloseAccount {
+            account: ctx.accounts.vault.to_account_info(),
+            destination: ctx.accounts.poster.to_account_info(),
+            authority: task.to_account_info(),
+        };
+        token_interface::close_account(
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
+                .with_signer(signer),
+        )?;
+
+        emit!(VaultClosed {
+            task: task.key(),
+            poster: task.poster,
+        });
+
+        Ok(())
+    }
 }
 
 fn validate_claim(task: &TaskEscrow, now: i64) -> Result<()> {
@@ -307,6 +344,20 @@ pub fn validate_cancel_at(
         vault_amount >= task.reward_amount,
         RelayError::EscrowUnderfunded
     );
+    Ok(())
+}
+
+pub fn validate_terminal_vault_close(
+    task: &TaskEscrow,
+    poster: Pubkey,
+    vault_amount: u64,
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Paid || task.status == TaskStatus::Cancelled,
+        RelayError::InvalidStatus
+    );
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    require!(vault_amount == 0, RelayError::VaultNotEmpty);
     Ok(())
 }
 
@@ -493,6 +544,31 @@ pub struct CancelOpenTask<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
+#[derive(Accounts)]
+pub struct CloseTerminalVault<'info> {
+    #[account(
+        seeds = [b"task", task.poster.as_ref(), task.task_id.as_ref()],
+        bump = task.bump
+    )]
+    pub task: Account<'info, TaskEscrow>,
+
+    /// CHECK: constrained to the original poster and used only as the close destination.
+    #[account(mut, address = task.poster @ RelayError::WrongPoster)]
+    pub poster: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        token::authority = task,
+        token::token_program = token_program,
+        seeds = [b"vault", task.key().as_ref()],
+        bump = task.vault_bump,
+        constraint = vault.mint == task.mint @ RelayError::WrongMint
+    )]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct TaskEscrow {
@@ -559,6 +635,12 @@ pub struct TaskCancelled {
     pub task: Pubkey,
 }
 
+#[event]
+pub struct VaultClosed {
+    pub task: Pubkey,
+    pub poster: Pubkey,
+}
+
 #[error_code]
 pub enum RelayError {
     #[msg("Reward amount must be greater than zero")]
@@ -581,6 +663,8 @@ pub enum RelayError {
     InvalidEvidenceHash,
     #[msg("Escrow vault is underfunded")]
     EscrowUnderfunded,
+    #[msg("Terminal escrow vault must be empty before rent reclamation")]
+    VaultNotEmpty,
     #[msg("Token transfer did not credit the exact expected amount")]
     TokenCreditMismatch,
     #[msg("Task account is not the canonical PDA for its stored poster and task id")]
