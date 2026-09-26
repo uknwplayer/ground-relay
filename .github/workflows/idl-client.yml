@@ -1,0 +1,26 @@
+name: IDL client consistency
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "idl/ground_relay.json"
+      - "src/solana/ground-relay.ts"
+      - "scripts/check-idl-client.py"
+      - ".github/workflows/idl-client.yml"
+  pull_request:
+    paths:
+      - "idl/ground_relay.json"
+      - "src/solana/ground-relay.ts"
+      - "scripts/check-idl-client.py"
+      - ".github/workflows/idl-client.yml"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check committed IDL against Kit client
+        run: python3 scripts/check-idl-client.py
