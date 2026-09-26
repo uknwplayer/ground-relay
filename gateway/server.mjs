@@ -23,7 +23,16 @@ function parseTaskPath(pathname) {
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "v1" || parts[1] !== "tasks" || !parts[2]) return null;
   const action = parts.length > 3 ? parts.slice(3).join("/") : null;
-  const allowed = new Set([null, "claim", "deliveries", "verify", "paid", "sync", "chain-binding", "resume/retry"]);
+  const allowed = new Set([
+    null,
+    "claim",
+    "deliveries",
+    "verify",
+    "paid",
+    "sync",
+    "chain-binding",
+    "resume/retry",
+  ]);
   if (!allowed.has(action)) return null;
   return { taskId: decodeURIComponent(parts[2]), action };
 }
@@ -68,7 +77,9 @@ export function createRelayServer({ service }) {
       }
       if (req.method === "POST" && url.pathname === "/v1/tasks") {
         const body = await readJson(req);
-        const task = await service.createTask(body, { idempotencyKey: idempotencyHeader(req) });
+        const task = await service.createTask(body, {
+          idempotencyKey: idempotencyHeader(req),
+        });
         return json(res, 201, task);
       }
       const route = parseTaskPath(url.pathname);
@@ -104,14 +115,18 @@ export function createRelayServer({ service }) {
       const status = STATUS_BY_CODE.get(code) ?? 500;
       return json(res, status, {
         error: code ?? "internal_error",
-        ...(status === 500 ? { message: error instanceof Error ? error.message : String(error) } : {}),
+        ...(status === 500
+          ? { message: error instanceof Error ? error.message : String(error) }
+          : {}),
       });
     }
   });
 }
 
 export async function createDefaultRelayServiceFromEnv(env = process.env) {
-  const statePath = env.GROUND_RELAY_STATE_PATH ?? fileURLToPath(new URL("./data/state.json", import.meta.url));
+  const statePath =
+    env.GROUND_RELAY_STATE_PATH ??
+    fileURLToPath(new URL("./data/state.json", import.meta.url));
   const rpcUrl = env.GROUND_RELAY_RPC_URL ?? "https://api.devnet.solana.com";
   const programId = env.GROUND_RELAY_PROGRAM_ID ?? GROUND_RELAY_PROGRAM_ID;
   const allowLoopbackHttp = env.GROUND_RELAY_ALLOW_LOOPBACK_HTTP === "1";
@@ -121,7 +136,8 @@ export async function createDefaultRelayServiceFromEnv(env = process.env) {
   const service = createRelayService({
     store,
     chain,
-    callbackTransport: (input) => sendResumeCallback(input),
+    callbackTransport: (input) =>
+      sendResumeCallback({ ...input, allowLoopbackHttp }),
     allowLoopbackHttp,
     programId,
   });
@@ -129,7 +145,9 @@ export async function createDefaultRelayServiceFromEnv(env = process.env) {
   return service;
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isDirect =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirect) {
   const service = await createDefaultRelayServiceFromEnv();
   const port = Number(process.env.PORT ?? 8787);
