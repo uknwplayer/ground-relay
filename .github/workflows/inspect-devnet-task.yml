@@ -1,0 +1,17 @@
+name: Inspect devnet task state
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/devnet-fixture/inspect-trigger.txt"
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect task PDA and vault through signer-free RPC
+        run: python3 scripts/inspect-devnet-task.py
