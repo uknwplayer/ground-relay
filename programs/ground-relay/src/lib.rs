@@ -20,6 +20,10 @@ pub mod ground_relay {
             expires_at > Clock::get()?.unix_timestamp,
             RelayError::InvalidExpiry
         );
+        validate_new_escrow_mint_policy(
+            ctx.accounts.token_program.key(),
+            ctx.accounts.mint.freeze_authority.is_some(),
+        )?;
 
         let task = &mut ctx.accounts.task;
         task.task_id = task_id;
@@ -277,6 +281,22 @@ fn validate_exact_credit(before: u64, after: u64, expected: u64) -> Result<()> {
     Ok(())
 }
 
+pub fn validate_new_escrow_mint_policy(
+    token_program: Pubkey,
+    has_freeze_authority: bool,
+) -> Result<()> {
+    require_keys_eq!(
+        token_program,
+        anchor_spl::token::ID,
+        RelayError::UnsupportedTokenProgram
+    );
+    require!(
+        !has_freeze_authority,
+        RelayError::FreezeAuthorityPresent
+    );
+    Ok(())
+}
+
 pub fn is_canonical_task(task_key: Pubkey, task: &TaskEscrow) -> bool {
     let bump = [task.bump];
     Pubkey::create_program_address(
@@ -525,6 +545,10 @@ pub enum RelayError {
     TokenCreditMismatch,
     #[msg("Task account is not the canonical PDA for its stored poster and task id")]
     NonCanonicalTask,
+    #[msg("New escrows require the classic SPL Token program")]
+    UnsupportedTokenProgram,
+    #[msg("New escrow mint must not have a freeze authority")]
+    FreezeAuthorityPresent,
 }
 
 #[cfg(test)]
