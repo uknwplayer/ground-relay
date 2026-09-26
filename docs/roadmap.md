@@ -182,7 +182,7 @@ Detailed proof: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 - [~] Wallet/network recovery states — ambiguous MWA transaction returns are reconciled on-chain; Gateway/Solana outages now degrade to read-only cached state
 - [x] App restart/state restoration with versioned AsyncStorage state and no automatic transaction replay
 - [ ] Deep-link or QR handoff where useful
-- [ ] Evidence privacy review
+- [x] Evidence privacy review — raw capture remains local, restart state strips URI/bytes, retention cleanup is explicit and fail-visible; metadata sanitization limits are documented in `docs/security/evidence-privacy.md`
 - [ ] Security review of account constraints, authorities, replay/idempotency, callback/SSRF policy, and payment invariants
 - [ ] Define and implement task/vault rent reclamation policy for terminal tasks
 - [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK/Gateway workflows remain separate
@@ -201,7 +201,14 @@ Receipt/history hardening:
 - screen integration commit: `fc69048fbc3e5fcfec5b9da7c66abb4bdc088abf`
 - root CI run: `36269010656` — tests PASS, typecheck PASS
 
-Remaining M8 work includes non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, evidence privacy review, account/payment security review, rent reclamation policy, and repository-wide demo-only cleanup.
+Evidence privacy hardening:
+
+- RED commit: `a6b8649b33258c33272fa4420236ab1f9c425693`
+- GREEN commit: `3d3968755e62f660929ad51540f0b1715d810d72`
+- root CI run: `36270786483` — **95/95 tests PASS**, typecheck PASS
+- policy: `docs/security/evidence-privacy.md`
+
+Remaining M8 work includes non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, account/payment security review, rent reclamation policy, and repository-wide demo-only cleanup.
 
 **Exit condition:** the demo is robust enough to repeat without manual repair. **Not yet complete.**
 
