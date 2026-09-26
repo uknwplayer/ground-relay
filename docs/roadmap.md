@@ -104,33 +104,51 @@ Payout transaction:
 
 Independent post-payout inspection run: `36207197941`.
 
-**Exit condition:** the physical Android app performs CLAIMED and DELIVERED transitions against the Ground Relay program. **Complete.**
+**Exit condition:** the physical Android app performs direct Anchor transitions against the Ground Relay program. **Complete.**
 
 ## M6 — Acceptance, payout, and failure paths
 
 - [x] Poster/verifier accepts valid delivery with `accept_task`
 - [x] `release_payment` transfers the escrowed SPL reward to the worker
 - [x] Verify worker token balance changed by the expected amount
-- [ ] Verify the vault cannot pay twice
-- [ ] Test wrong-worker, wrong-poster, wrong-mint, underfunded, expired, and invalid-state failures
-- [ ] Implement/test open-task cancellation and refund
-- [ ] Define and implement expiry/reopen behavior
-- [ ] Close/reclaim vault/task rent where appropriate
+- [x] Prove a paid task cannot pay twice on devnet and balances remain unchanged after rejection
+- [x] Prove wrong-worker rejection on devnet
+- [x] Prove wrong-poster rejection on devnet
+- [x] Prove release-before-acceptance and other invalid-state rejection on devnet
+- [x] Prove expired tasks cannot be claimed on devnet
+- [x] Implement/test open-task cancellation and exact escrow refund on devnet
+- [x] Define expiry/reopen policy: expired OPEN tasks are cancelled/refunded; reopening uses a new task ID
+- [x] Keep `WrongMint` and `EscrowUnderfunded` defense-in-depth validator coverage; normal initialized state structurally prevents manufacturing those conditions
 
 Verified successful settlement evidence:
 
 - acceptance signature: `4QVs7r2xBgSNzZHm8z3N5jbJZKVNCAT4cXEw9pTCqVRv79DchyYDfjnUXUsDJCVWuWFZCZ6WJYE1zTBrDoHSF8Hd`
-- payout signature: `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
-- final vault amount: `0`
-- final worker token amount: `1,000,000` atomic WSOL
+- physical payout signature: `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
+- canonical final vault amount: `0`
+- canonical final worker token amount: `1,000,000` atomic WSOL
 
-**Exit condition:** one real devnet task completes OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID with an observable token transfer, plus the critical settlement failure/lifecycle paths are demonstrated. Successful settlement is complete; adversarial/lifecycle hardening remains.
+Isolated guard suite:
+
+- workflow run: `36208008464`
+- wrong worker: PASS
+- wrong poster: PASS
+- premature release: PASS
+- second payout rejected with state/balances unchanged: PASS
+- expired claim: PASS
+- cancellation/refund: PASS
+- second cancellation and claim-after-cancel: PASS
+
+Detailed proof: `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`.
+
+**Exit condition:** successful settlement plus critical adversarial/lifecycle paths are demonstrated. **Complete.**
+
+Task/vault rent reclamation is intentionally moved to M8 hardening because it requires a deliberate account-closure/API policy and is not required for settlement correctness.
 
 ## M7 — Agent Gateway and resume loop
 
-- [ ] Agent-facing task creation API
+- [~] Agent-facing task creation API — prototype endpoint exists; on-chain creation binding remains
 - [ ] Persist external task ID <-> on-chain task PDA mapping
-- [ ] Delivery/acceptance status endpoint
+- [~] Delivery/acceptance status endpoint — prototype state endpoints exist; chain synchronization remains
 - [ ] Idempotent callbacks
 - [ ] Agent resume callback after settlement
 - [ ] Failure/retry semantics
@@ -147,6 +165,7 @@ Verified successful settlement evidence:
 - [ ] Deep-link or QR handoff where useful
 - [ ] Evidence privacy review
 - [ ] Security review of account constraints, authorities, replay/idempotency, and payment invariants
+- [ ] Define and implement task/vault rent reclamation policy for terminal tasks
 - [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK workflows remain separate
 - [ ] Remove or clearly label all demo-only values and memo prototype behavior
 
