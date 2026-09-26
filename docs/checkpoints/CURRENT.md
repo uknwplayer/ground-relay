@@ -1,7 +1,7 @@
 # Current checkpoint
 
 **Date:** 2026-09-25  
-**Stage:** M4 — real funded escrow fixture  
+**Stage:** M5 — physical validation of mobile Anchor integration  
 **Repository:** `uknwplayer/ground-relay`
 
 ## Verified working state
@@ -129,24 +129,93 @@ No production/mainnet deployment is authorized by this checkpoint.
 - Do **not** change `declare_id` or the program ID just to fix an ordinary verification/build error.
 - Do **not** commit keypairs, seed phrases, wallet secrets, or auth tokens.
 
-## Active M4 operation
+## M4 funded escrow fixture — verified
 
-A repeatable devnet escrow fixture workflow is now running:
+Workflow:
 
-- workflow: `Create devnet escrow fixture`
-- run ID: `36203365279`
-- fixture client uses the controlled deployer as poster
-- worker public key is resolved from the already-proven mobile claim receipt
-- reward asset is devnet WSOL
-- target reward: `1,000,000` atomic units = `0.001 WSOL`
-- deterministic fixture key: `ground-relay-devnet-escrow-v1`
+`Create devnet escrow fixture`
 
-The workflow creates/validates poster and worker WSOL token accounts, creates the deterministic task PDA with `post_task`, funds the program vault, and verifies the resulting on-chain state.
+Run ID:
+
+`36203365279`
+
+Result: **success**
+
+Verified fixture:
+
+- fixture: `ground-relay-devnet-escrow-v1`
+- poster: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
+- worker: `7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
+- payment asset: devnet WSOL
+- mint: `So11111111111111111111111111111111111111112`
+- reward: `1,000,000` atomic units = `0.001 WSOL`
+- task ID: `e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662`
+- task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
+- vault PDA: `FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm`
+- poster WSOL account: `FBeCmjTbAYKP9ZmEr35Fum7sVrsm8EgipVQup2KFgnec`
+- worker WSOL account: `2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
+- vault amount: `1,000,000`
+- task state: `OPEN`
+- WSOL funding signature: `5BgqhbRbquE6yWcvjzcBEHJsMaC9b3MAGjyx2qRWots8ARqE6JnqapDhXfjEmEmsSooPSHkv3Pmpp5eM2AQadm5c`
+- `post_task` signature: `4tBjUWu9cnSZQSHqGkwNZHyJN92uRy1eDAhjQhoUhzZDGuCaKWKPpmhgmA8YHcPBQtYRU5JEseEDywJZ6ZF6pCRi`
+
+All fixture checks passed: poster, mint, reward, OPEN status, vault authority, vault mint, and vault funding.
+
+**M4 is complete.**
+
+## M5 implementation state
+
+The Android client has been moved from the memo bootstrap toward the real deployed Anchor program.
+
+Implemented in source:
+
+- committed deployed IDL at `idl/ground_relay.json`
+- Kit-native task account decoder
+- real `claim_task` instruction
+- real `submit_evidence` instruction
+- on-chain task hydration
+- transaction confirmation polling before state refresh
+- real Anchor claim/delivery receipt display
+- worker-signed `release_payment` instruction and payout UI for the later ACCEPTED state
+- CI guard that checks mobile instruction discriminators/program ID against the committed IDL
+- poster-side acceptance script/workflow prepared for after delivery
+
+Latest typecheck for the direct Anchor integration passed.
+
+## Human validation boundary
+
+The next step requires a physical Android device and the worker's Solflare wallet.
+
+The new standalone APK must be installed and used to prove that the wallet can sign the **actual Ground Relay program instructions**, not memo receipts.
+
+Expected first device state:
+
+- task: `OPEN`
+- reward: `0.001 WSOL`
+- on-chain task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
+
+Required device proof:
+
+1. connect the existing devnet worker wallet;
+2. sign `claim_task`;
+3. confirm app hydrates to `CLAIMED`;
+4. capture evidence;
+5. sign `submit_evidence`;
+6. confirm app hydrates to `DELIVERED`.
+
+After DELIVERED, the poster acceptance can be executed by the prepared repository workflow without exposing poster keys. After ACCEPTED, the same Android build can present the worker-signed payout button.
+
+## Do not repeat
+
+- Do **not** run the devnet identity bootstrap again.
+- Do **not** regenerate the program keypair.
+- Do **not** overwrite the deployment GitHub Secrets.
+- Do **not** recreate or replace the verified M4 task fixture.
+- Do **not** use the old memo receipts as proof of direct Anchor integration.
+- Do **not** commit keypairs, seed phrases, wallet secrets, or auth tokens.
 
 ## Next recommended action
 
-Wait for run `36203365279` to finish.
+Wait for the final standalone Android build containing the direct Anchor integration and payout path.
 
-If it succeeds: record task/vault/token-account addresses and the `post_task` signature, mark M4 complete, and begin M5 mobile -> Anchor integration.
-
-If it fails: repair only the fixture/client step while preserving the deployed program identity, deployment Secrets, and proven mobile memo flow.
+When it is green, install that APK on the physical Android device and validate the real `claim_task` and `submit_evidence` flow with Solflare on devnet.
