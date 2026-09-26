@@ -1,7 +1,11 @@
 import { createServer } from "node:http";
-import { createHash, randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
-export const tasks = new Map();
+import { sendResumeCallback } from "./callbacks.mjs";
+import { createSolanaChainAdapter } from "./chain.mjs";
+import { createRelayService, GROUND_RELAY_PROGRAM_ID } from "./service.mjs";
+import { createJsonStore } from "./store.mjs";
 
 function json(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
@@ -16,175 +20,117 @@ async function readJson(req) {
 }
 
 function parseTaskPath(pathname) {
-  const match = pathname.match(
-    /^\/v1\/tasks\/([^/]+)(?:\/(claim|deliveries|verify|paid))?$/,
-  );
-  if (!match) return null;
-  return { taskId: decodeURIComponent(match[1]), action: match[2] ?? null };
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "v1" || parts[1] !== "tasks" || !parts[2]) return null;
+  const action = parts.length > 3 ? parts.slice(3).join("/") : null;
+  const allowed = new Set([null, "claim", "deliveries", "verify", "paid", "sync", "chain-binding", "resume/retry"]);
+  if (!allowed.has(action)) return null;
+  return { taskId: decodeURIComponent(parts[2]), action };
 }
 
-function canonicalHash(value) {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const STATUS_BY_CODE = new Map([
+  ["task_not_found", 404],
+  ["invalid_task", 400],
+  ["callback_not_configured", 400],
+  ["worker_required", 400],
+  ["invalid_bundle_hash", 400],
+  ["wrong_worker", 403],
+  ["wrong_poster", 403],
+  ["task_exists", 409],
+  ["idempotency_conflict", 409],
+  ["invalid_status", 409],
+  ["task_not_bound", 409],
+  ["binding_conflict", 409],
+  ["chain_authoritative", 409],
+  ["chain_mismatch", 409],
+  ["settlement_not_confirmed", 409],
+  ["settlement_conflict", 409],
+  ["resume_not_ready", 409],
+  ["callback_retry_exhausted", 409],
+  ["chain_unavailable", 503],
+]);
+
+function idempotencyHeader(req) {
+  const value = req.headers["idempotency-key"];
+  return Array.isArray(value) ? value[0] : value;
 }
 
-function publicTask(task) {
-  return {
-    id: task.id,
-    title: task.title,
-    description: task.description,
-    poster: task.poster,
-    worker: task.worker,
-    status: task.status,
-    rewardAtomic: task.rewardAtomic,
-    rewardMint: task.rewardMint,
-    createdAt: task.createdAt,
-    expiresAt: task.expiresAt,
-    criteria: task.criteria,
-    callbackUrl: task.callbackUrl,
-    evidenceHash: task.evidenceHash,
-    settlementSignature: task.settlementSignature,
-  };
-}
-
-export function createRelayServer() {
+export function createRelayServer({ service }) {
+  if (!service) throw new Error("Ground Relay service is required.");
   return createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
-
       if (req.method === "GET" && url.pathname === "/health") {
         return json(res, 200, { ok: true, service: "ground-relay-agent-gateway" });
       }
-
       if (req.method === "POST" && url.pathname === "/v1/tasks") {
         const body = await readJson(req);
-        if (
-          !body.title ||
-          !body.description ||
-          !body.poster ||
-          !body.rewardAtomic ||
-          !body.rewardMint ||
-          !Array.isArray(body.criteria) ||
-          body.criteria.length === 0
-        ) {
-          return json(res, 400, { error: "invalid_task" });
-        }
-
-        const id = body.id ?? randomUUID();
-        if (tasks.has(id)) {
-          return json(res, 409, { error: "task_exists" });
-        }
-
-        const task = {
-          id,
-          title: body.title,
-          description: body.description,
-          poster: body.poster,
-          worker: undefined,
-          status: "open",
-          rewardAtomic: String(body.rewardAtomic),
-          rewardMint: body.rewardMint,
-          createdAt: new Date().toISOString(),
-          expiresAt: body.expiresAt,
-          criteria: body.criteria,
-          callbackUrl: body.callbackUrl,
-          evidenceHash: undefined,
-          settlementSignature: undefined,
-          eventHash: canonicalHash({ id, body }),
-        };
-        tasks.set(id, task);
-        return json(res, 201, publicTask(task));
+        const task = await service.createTask(body, { idempotencyKey: idempotencyHeader(req) });
+        return json(res, 201, task);
       }
-
       const route = parseTaskPath(url.pathname);
       if (!route) return json(res, 404, { error: "not_found" });
-
-      const task = tasks.get(route.taskId);
-      if (!task) return json(res, 404, { error: "task_not_found" });
-
       if (req.method === "GET" && route.action === null) {
-        return json(res, 200, publicTask(task));
+        return json(res, 200, await service.getTask(route.taskId));
       }
-
-      if (req.method === "POST" && route.action === "claim") {
-        const body = await readJson(req);
-        if (task.status !== "open") {
-          return json(res, 409, { error: "invalid_status", status: task.status });
-        }
-        if (!body.worker) return json(res, 400, { error: "worker_required" });
-        task.worker = body.worker;
-        task.status = "claimed";
-        task.claimSignature = body.signature;
-        return json(res, 200, publicTask(task));
+      if (req.method === "PUT" && route.action === "chain-binding") {
+        return json(res, 200, await service.bindTask(route.taskId, await readJson(req)));
       }
-
-      if (req.method === "POST" && route.action === "deliveries") {
-        const body = await readJson(req);
-        if (task.status !== "claimed") {
-          return json(res, 409, { error: "invalid_status", status: task.status });
-        }
-        if (!body.worker || body.worker !== task.worker) {
-          return json(res, 403, { error: "wrong_worker" });
-        }
-        if (!/^[a-f0-9]{64}$/.test(body.bundleHash ?? "")) {
-          return json(res, 400, { error: "invalid_bundle_hash" });
-        }
-        task.evidenceHash = body.bundleHash;
-        task.deliverySignature = body.signature;
-        task.status = "delivered";
-        return json(res, 202, publicTask(task));
+      if (req.method === "POST" && route.action === "sync") {
+        return json(res, 200, await service.syncTask(route.taskId));
       }
-
-      if (req.method === "POST" && route.action === "verify") {
-        const body = await readJson(req);
-        if (task.status !== "delivered") {
-          return json(res, 409, { error: "invalid_status", status: task.status });
-        }
-        if (body.poster !== task.poster) {
-          return json(res, 403, { error: "wrong_poster" });
-        }
-        if (body.accepted !== true) {
-          task.status = "claimed";
-          return json(res, 200, publicTask(task));
-        }
-        task.status = "accepted";
-        return json(res, 200, publicTask(task));
-      }
-
       if (req.method === "POST" && route.action === "paid") {
-        const body = await readJson(req);
-        if (task.status !== "accepted") {
-          return json(res, 409, { error: "invalid_status", status: task.status });
-        }
-        if (!body.signature) {
-          return json(res, 400, { error: "settlement_signature_required" });
-        }
-        task.settlementSignature = body.signature;
-        task.status = "paid";
-        return json(res, 200, {
-          task: publicTask(task),
-          resume: {
-            taskId: task.id,
-            status: "paid",
-            evidenceHash: task.evidenceHash,
-            settlementSignature: task.settlementSignature,
-            callbackUrl: task.callbackUrl,
-          },
-        });
+        return json(res, 200, await service.notifyPaid(route.taskId, await readJson(req)));
       }
-
+      if (req.method === "POST" && route.action === "resume/retry") {
+        return json(res, 200, await service.retryResume(route.taskId));
+      }
+      if (req.method === "POST" && route.action === "claim") {
+        return json(res, 200, await service.claimLocal(route.taskId, await readJson(req)));
+      }
+      if (req.method === "POST" && route.action === "deliveries") {
+        return json(res, 202, await service.deliverLocal(route.taskId, await readJson(req)));
+      }
+      if (req.method === "POST" && route.action === "verify") {
+        return json(res, 200, await service.verifyLocal(route.taskId, await readJson(req)));
+      }
       return json(res, 405, { error: "method_not_allowed" });
     } catch (error) {
-      return json(res, 500, {
-        error: "internal_error",
-        message: error instanceof Error ? error.message : String(error),
+      if (error instanceof SyntaxError) return json(res, 400, { error: "invalid_task" });
+      const code = error?.code;
+      const status = STATUS_BY_CODE.get(code) ?? 500;
+      return json(res, status, {
+        error: code ?? "internal_error",
+        ...(status === 500 ? { message: error instanceof Error ? error.message : String(error) } : {}),
       });
     }
   });
 }
 
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
+export async function createDefaultRelayServiceFromEnv(env = process.env) {
+  const statePath = env.GROUND_RELAY_STATE_PATH ?? fileURLToPath(new URL("./data/state.json", import.meta.url));
+  const rpcUrl = env.GROUND_RELAY_RPC_URL ?? "https://api.devnet.solana.com";
+  const programId = env.GROUND_RELAY_PROGRAM_ID ?? GROUND_RELAY_PROGRAM_ID;
+  const allowLoopbackHttp = env.GROUND_RELAY_ALLOW_LOOPBACK_HTTP === "1";
+  const store = createJsonStore({ statePath });
+  await store.init();
+  const chain = createSolanaChainAdapter({ rpcUrl, programId });
+  const service = createRelayService({
+    store,
+    chain,
+    callbackTransport: (input) => sendResumeCallback(input),
+    allowLoopbackHttp,
+    programId,
+  });
+  await service.start();
+  return service;
+}
+
+const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirect) {
+  const service = await createDefaultRelayServiceFromEnv();
   const port = Number(process.env.PORT ?? 8787);
-  createRelayServer().listen(port, "127.0.0.1", () => {
+  createRelayServer({ service }).listen(port, "127.0.0.1", () => {
     console.log(`Ground Relay agent gateway listening on http://127.0.0.1:${port}`);
   });
 }
