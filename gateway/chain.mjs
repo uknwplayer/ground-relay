@@ -2,6 +2,12 @@ const DISCRIMINATOR = new Uint8Array([209, 72, 197, 54, 17, 55, 3, 187]);
 const STATUS = ["open", "claimed", "delivered", "accepted", "paid", "cancelled"];
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
+function chainMismatch(message) {
+  const error = new Error(message);
+  error.code = "chain_mismatch";
+  return error;
+}
+
 function bytesToHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -25,14 +31,14 @@ function base58Encode(bytes) {
 }
 
 export function decodeGroundRelayTaskAccount({ data, owner, expectedProgramId }) {
-  if (owner !== expectedProgramId) throw new Error("Ground Relay task account owner does not match configured program.");
+  if (owner !== expectedProgramId) throw chainMismatch("Ground Relay task account owner does not match configured program.");
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-  if (bytes.length < 187) throw new Error(`Ground Relay task account is too small: ${bytes.length}; expected at least 187 bytes.`);
+  if (bytes.length < 187) throw chainMismatch(`Ground Relay task account is too small: ${bytes.length}; expected at least 187 bytes.`);
   for (let i = 0; i < DISCRIMINATOR.length; i += 1) {
-    if (bytes[i] !== DISCRIMINATOR[i]) throw new Error("Unexpected Ground Relay task account discriminator.");
+    if (bytes[i] !== DISCRIMINATOR[i]) throw chainMismatch("Unexpected Ground Relay task account discriminator.");
   }
   const status = STATUS[bytes[152]];
-  if (!status) throw new Error(`Unknown Ground Relay task status index: ${bytes[152]}`);
+  if (!status) throw chainMismatch(`Unknown Ground Relay task status index: ${bytes[152]}`);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const workerBytes = bytes.slice(72, 104);
   const evidenceBytes = bytes.slice(153, 185);
@@ -53,8 +59,14 @@ export function createSolanaChainAdapter({ rpcUrl, programId }) {
     async readTask(taskPda) {
       const { Connection, PublicKey } = await import("@solana/web3.js");
       const connection = new Connection(rpcUrl, "confirmed");
-      const account = await connection.getAccountInfo(new PublicKey(taskPda), "confirmed");
-      if (!account) throw new Error("Ground Relay task account not found.");
+      let publicKey;
+      try {
+        publicKey = new PublicKey(taskPda);
+      } catch {
+        throw chainMismatch("Invalid Ground Relay task PDA.");
+      }
+      const account = await connection.getAccountInfo(publicKey, "confirmed");
+      if (!account) throw chainMismatch("Ground Relay task account not found.");
       return {
         taskPda,
         ...decodeGroundRelayTaskAccount({
