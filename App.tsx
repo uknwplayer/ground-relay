@@ -28,6 +28,7 @@ import {
   mergeFreshInbox,
   selectTaskSession,
 } from "./src/inbox/flow";
+import { HistoryView } from "./src/inbox/HistoryView";
 import {
   deriveActionEligibility,
   reconcileSelectedTask,
@@ -97,6 +98,7 @@ function RelayScreen() {
   const [gatewayError, setGatewayError] = useState<string>();
   const [chainError, setChainError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [selectedView, setSelectedView] = useState<"task" | "history">("task");
 
   const gatewayBaseUrl = useMemo(() => resolveGatewayBaseUrl(), []);
   const walletAddress = account?.address?.toString();
@@ -263,6 +265,7 @@ function RelayScreen() {
 
   async function chooseTask(task: InboxTaskSummary) {
     const next = selectTaskSession(task, new Date().toISOString());
+    setSelectedView("task");
     setSession(next);
     setCapturedEvidence(undefined);
     setAuthoritative(undefined);
@@ -271,6 +274,7 @@ function RelayScreen() {
   }
 
   async function clearSelection() {
+    setSelectedView("task");
     setSession(undefined);
     setAuthoritative(undefined);
     setCapturedEvidence(undefined);
@@ -548,6 +552,19 @@ function RelayScreen() {
     );
   }
 
+  if (selectedView === "history") {
+    return (
+      <HistoryView
+        summary={selectedTask}
+        session={session}
+        authoritative={authoritative}
+        chainError={chainError}
+        onBack={() => setSelectedView("task")}
+        onRefresh={() => void refreshSelectedTask(selectedTask)}
+      />
+    );
+  }
+
   const criteriaDone = selectedTask.criteria.filter(
     (criterion) => criterion.required,
   ).length;
@@ -607,6 +624,13 @@ function RelayScreen() {
                 }`
               : "Actions locked until authoritative devnet reconciliation succeeds"}
           </Text>
+
+          <Pressable
+            style={styles.secondaryAction}
+            onPress={() => setSelectedView("history")}
+          >
+            <Text style={styles.secondaryActionText}>View receipt history</Text>
+          </Pressable>
 
           {claimSignature ? (
             <View style={styles.receipt}>
