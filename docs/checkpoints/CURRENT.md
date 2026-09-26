@@ -1,6 +1,6 @@
 # Current checkpoint
 
-**Local date:** 2026-09-25  
+**Local date:** 2026-09-26  
 **UTC date:** 2026-09-26  
 **Stage:** M8 — product hardening  
 **Repository:** `uknwplayer/ground-relay`
@@ -16,7 +16,7 @@ Combined target loop:
 
 `agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> verified agent resume callback`
 
-**M5, M6, and M7 are complete.**
+**M5, M6, and M7 are complete and M7 is merged into `main`. M8 is now active.**
 
 ## Canonical devnet identity
 
@@ -131,24 +131,25 @@ Implemented and tested:
 - restart recovery for pending retries;
 - manual retry with stable event identity;
 - bound tasks reject legacy local mutations with `chain_authoritative`;
-- seeded restart demo proving acknowledged callbacks are not duplicated.
+- seeded restart demo proving acknowledged callbacks are not duplicated;
+- repeated `/paid` notification redelivers an unacknowledged logical event without changing its identity.
 
-Deterministic proof workflow:
+Final branch verification:
 
-`Gateway check`
-
-Run:
-
-`36211748985`
-
-Result:
-
+- branch HEAD: `aa664f389482fc66039fb21d196e0a26749cd36a`
+- Gateway check run: `36213994673`
 - `npm ci`: PASS
-- Gateway tests: **48/48 PASS**
+- Gateway tests: **49/49 PASS**
 - seeded demo: **PASS**
-- callback count before restart: `1`
-- callback count after restart: `1`
 - duplicate callback after restart: `false`
+
+M7 integration:
+
+- pull request: `#2`
+- merge method: squash
+- `main` commit: `42231293ed787d367d0db9d4e183daed6e9f979c`
+- post-merge Gateway check run: `36249541738`
+- post-merge result: **PASS**
 
 Seeded event ID:
 
@@ -176,13 +177,19 @@ Resume semantics are:
 
 A successful `2xx` acknowledgement is persisted and prevents automatic resend after restart.
 
-## Current implementation branch
+## M8 working state
 
-M7 was developed in the isolated branch:
+M8 is the active milestone.
 
-`m7-agent-gateway-resume`
+The first product-hardening slice is:
 
-`main` was intentionally left untouched during implementation. Integrating that branch is a deliberate final action after whole-branch review.
+1. task inbox backed by real task data;
+2. app restart/state restoration;
+3. receipt/history screen over restored authoritative task state.
+
+Follow-on M8 work includes deep-link/QR handoff where useful, callback/SSRF hardening, evidence privacy review, account/payment security review, terminal account rent reclamation policy, and removal or explicit labeling of remaining demo-only behavior.
+
+M8 work should proceed in an isolated branch from the verified M7 `main` state. No mainnet deployment is authorized.
 
 ## Key documents
 
@@ -212,4 +219,4 @@ M7 was developed in the isolated branch:
 
 ## Next recommended action
 
-Finish the M7 whole-branch review and integrate the isolated branch only after verification. Then continue M8 with product hardening, prioritizing real task inbox/history + app restart/state restoration, followed by callback/SSRF, evidence privacy, payment/account-closure security review, and release repeatability.
+Start M8 in an isolated branch and design the first hardening slice around a real-data task inbox plus deterministic app restart/state restoration. Keep Solana state authoritative and preserve the canonical paid fixture as historical proof.
