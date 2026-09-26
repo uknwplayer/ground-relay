@@ -1,0 +1,44 @@
+name: Accept delivered devnet task
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/devnet-fixture/accept-trigger.txt"
+  workflow_dispatch:
+
+concurrency:
+  group: ground-relay-devnet-accept
+  cancel-in-progress: false
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: devnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Restore poster keypair
+        env:
+          DEPLOYER_B64: ${{ secrets.GROUND_RELAY_DEVNET_DEPLOYER_KEYPAIR_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_B64"
+          umask 077
+          printf '%s' "$DEPLOYER_B64" | base64 --decode > /tmp/ground-relay-poster.json
+
+      - name: Install fixture client dependencies
+        run: npm install --prefix scripts/devnet-fixture --no-audit --no-fund
+
+      - name: Accept delivered task
+        env:
+          POSTER_KEYPAIR: /tmp/ground-relay-poster.json
+        run: node scripts/devnet-fixture/accept-task.cjs
+
+      - name: Remove key material
+        if: always()
+        run: rm -f /tmp/ground-relay-poster.json
