@@ -146,15 +146,34 @@ Task/vault rent reclamation is intentionally moved to M8 hardening because it re
 
 ## M7 — Agent Gateway and resume loop
 
-- [~] Agent-facing task creation API — prototype endpoint exists; on-chain creation binding remains
-- [ ] Persist external task ID <-> on-chain task PDA mapping
-- [~] Delivery/acceptance status endpoint — prototype state endpoints exist; chain synchronization remains
-- [ ] Idempotent callbacks
-- [ ] Agent resume callback after settlement
-- [ ] Failure/retry semantics
-- [ ] Seeded demo: agent blocks, creates task, human completes it, payout occurs, agent resumes
+- [x] Durable agent-facing task creation API with required callback URL
+- [x] Persist external task ID <-> on-chain task PDA/post signature mapping
+- [x] Authoritative Solana task synchronization for bound tasks
+- [x] Persist task/idempotency/callback state across Gateway restart
+- [x] Idempotent create semantics with conflict detection
+- [x] Stable resume event ID and `Idempotency-Key`
+- [x] Verified PAID settlement notification; a client cannot mark an unpaid task paid
+- [x] Actual agent resume callback after settlement
+- [x] Retry/failure classification with persisted +1s/+2s/+4s/+8s/+16s backoff
+- [x] Restart recovery for pending callback retries
+- [x] Manual retry for an existing undelivered resume event
+- [x] Bound tasks reject local state mutation with `chain_authoritative`
+- [x] Deterministic seeded demo proves agent blocked -> task bound -> chain paid -> callback -> agent resumed -> restart -> no duplicate callback
+- [x] Gateway remains non-custodial and stores no signing secrets
 
-**Exit condition:** Ground Relay proves the full product thesis, not just the mobile transaction flow.
+M7 deterministic proof:
+
+- workflow: `Gateway check`
+- run: `36211748985`
+- tests: `48/48` passed
+- seeded demo: **PASS**
+- callback count before restart: `1`
+- callback count after restart: `1`
+- deterministic event ID: `4deaf25af94d670a6d27317c6e128e5f8eff0779aabbe41fa22df19a1e3595a5`
+
+Detailed proof: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
+
+**Exit condition:** Ground Relay proves the agent-resume product thesis beyond the mobile payment transaction. **Complete.**
 
 ## M8 — Product hardening
 
@@ -164,9 +183,9 @@ Task/vault rent reclamation is intentionally moved to M8 hardening because it re
 - [ ] App restart/state restoration
 - [ ] Deep-link or QR handoff where useful
 - [ ] Evidence privacy review
-- [ ] Security review of account constraints, authorities, replay/idempotency, and payment invariants
+- [ ] Security review of account constraints, authorities, replay/idempotency, callback/SSRF policy, and payment invariants
 - [ ] Define and implement task/vault rent reclamation policy for terminal tasks
-- [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK workflows remain separate
+- [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK/Gateway workflows remain separate
 - [ ] Remove or clearly label all demo-only values and memo prototype behavior
 
 **Exit condition:** the demo is robust enough to repeat without manual repair.
@@ -187,7 +206,7 @@ Task/vault rent reclamation is intentionally moved to M8 hardening because it re
 
 ## Project definition of done
 
-Ground Relay is complete for this project when a reproducible physical-Android demo proves:
+Ground Relay is complete for this project when the combined reproducible proof establishes:
 
 `agent blocked -> funded on-chain task -> worker claims -> camera evidence -> evidence hash -> verifier accepts -> escrow pays worker -> agent resumes`
 
