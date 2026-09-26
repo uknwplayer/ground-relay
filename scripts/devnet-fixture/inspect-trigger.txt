@@ -1,1 +1,1 @@
-baseline-with-worker-token-before-mobile-anchor-validation
+after-mobile-claim-attempt-2026-09-25
