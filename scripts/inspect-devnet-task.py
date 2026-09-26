@@ -8,6 +8,7 @@ RPC = "https://api.devnet.solana.com"
 TASK_PDA = "7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT"
 VAULT_PDA = "FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm"
 EXPECTED_MINT = "So11111111111111111111111111111111111111112"
+WORKER_TOKEN = "2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6"
 ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 STATUSES = ["open", "claimed", "delivered", "accepted", "paid", "cancelled"]
 
@@ -65,6 +66,13 @@ vault_mint = b58encode(vault[0:32])
 vault_authority = b58encode(vault[32:64])
 vault_amount = struct.unpack_from("<Q", vault, 64)[0]
 
+worker_token_info, worker_token = account(WORKER_TOKEN)
+if len(worker_token) < 72:
+    raise SystemExit(f"Unexpected worker token account size: {len(worker_token)}")
+worker_token_mint = b58encode(worker_token[0:32])
+worker_token_owner = b58encode(worker_token[32:64])
+worker_token_amount = struct.unpack_from("<Q", worker_token, 64)[0]
+
 print("Task PDA:", TASK_PDA)
 print("Task owner:", task_info["owner"])
 print("Task ID:", task_id)
@@ -79,11 +87,16 @@ print("Vault PDA:", VAULT_PDA)
 print("Vault mint:", vault_mint)
 print("Vault authority:", vault_authority)
 print("Vault amount:", vault_amount)
+print("Worker token account:", WORKER_TOKEN)
+print("Worker token mint:", worker_token_mint)
+print("Worker token owner:", worker_token_owner)
+print("Worker token amount:", worker_token_amount)
 
 checks = {
     "mint": mint == EXPECTED_MINT,
     "vault_mint": vault_mint == EXPECTED_MINT,
     "vault_authority": vault_authority == TASK_PDA,
+    "worker_token_mint": worker_token_mint == EXPECTED_MINT,
 }
 print("Invariant checks:", json.dumps(checks, sort_keys=True))
 if not all(checks.values()):
