@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { getAddMemoInstruction } from "@solana-program/memo";
 import {
   createSolanaDevnet,
   MobileWalletProvider,
@@ -23,8 +22,12 @@ import {
   capturePhotoEvidence,
   type CapturedPhotoEvidence,
 } from "./src/evidence/capture";
-import { transition } from "./src/protocol/state-machine";
 import type { RelayTask } from "./src/protocol/types";
+import {
+  fetchGroundRelayTask,
+  getClaimTaskInstruction,
+  getSubmitEvidenceInstruction,
+} from "./src/solana/ground-relay";
 
 const cluster = createSolanaDevnet({
   url: "https://api.devnet.solana.com",
@@ -47,13 +50,14 @@ function shortHash(value: string): string {
 }
 
 function RelayScreen() {
-  const { account, connect, disconnect, sendTransactions } = useMobileWallet();
+  const { account, connect, disconnect, client, sendTransactions } = useMobileWallet();
   const [task, setTask] = useState<RelayTask>(demoTask);
   const [claimSignature, setClaimSignature] = useState<string>();
   const [deliverySignature, setDeliverySignature] = useState<string>();
   const [capturedEvidence, setCapturedEvidence] =
     useState<CapturedPhotoEvidence>();
   const [busy, setBusy] = useState(false);
+  const [chainError, setChainError] = useState<string>();
 
   const walletAddress = account?.address?.toString();
   const canClaim = task.status === "open" && Boolean(walletAddress);
@@ -65,6 +69,30 @@ function RelayScreen() {
     () => task.criteria.filter((criterion) => criterion.required).length,
     [task.criteria],
   );
+
+  async function refreshTask() {
+    try {
+      const onChain = await fetchGroundRelayTask(client.rpc as never);
+      setTask((current) => ({
+        ...current,
+        poster: onChain.poster,
+        worker: onChain.worker,
+        status: onChain.status,
+        rewardAtomic: onChain.rewardAtomic,
+        rewardMint: onChain.mint,
+        evidenceHash: onChain.evidenceHash,
+      }));
+      setChainError(undefined);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to read devnet task";
+      setChainError(message);
+    }
+  }
+
+  useEffect(() => {
+    void refreshTask();
+  }, [client]);
 
   async function connectWallet() {
     setBusy(true);
@@ -97,24 +125,12 @@ function RelayScreen() {
 
     setBusy(true);
     try {
-      const memo = JSON.stringify({
-        app: "ground-relay",
-        v: 1,
-        action: "claim",
-        taskId: task.id,
-        worker: walletAddress,
-      });
-
       const nextSignature = await sendTransactions([
-        getAddMemoInstruction({ memo }),
+        getClaimTaskInstruction(walletAddress),
       ]);
 
       setClaimSignature(nextSignature.toString());
-      setTask((current) => ({
-        ...current,
-        worker: walletAddress,
-        status: transition(current.status, "claimed"),
-      }));
+      await refreshTask();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Wallet transaction failed";
@@ -147,25 +163,15 @@ function RelayScreen() {
 
     setBusy(true);
     try {
-      const memo = JSON.stringify({
-        app: "ground-relay",
-        v: 1,
-        action: "deliver",
-        taskId: task.id,
-        worker: walletAddress,
-        evidenceHash: capturedEvidence.sha256,
-      });
-
       const nextSignature = await sendTransactions([
-        getAddMemoInstruction({ memo }),
+        getSubmitEvidenceInstruction(
+          walletAddress,
+          capturedEvidence.sha256,
+        ),
       ]);
 
       setDeliverySignature(nextSignature.toString());
-      setTask((current) => ({
-        ...current,
-        evidenceHash: capturedEvidence.sha256,
-        status: transition(current.status, "delivered"),
-      }));
+      await refreshTask();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Evidence submission failed";
@@ -173,13 +179,6 @@ function RelayScreen() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function resetDemo() {
-    setTask(demoTask);
-    setClaimSignature(undefined);
-    setDeliverySignature(undefined);
-    setCapturedEvidence(undefined);
   }
 
   return (
@@ -217,7 +216,7 @@ function RelayScreen() {
             <View style={styles.statusPill}>
               <Text style={styles.statusText}>{task.status.toUpperCase()}</Text>
             </View>
-            <Text style={styles.reward}>1.00 USDC</Text>
+            <Text style={styles.reward}>0.001 WSOL</Text>
           </View>
 
           <Text style={styles.taskTitle}>{task.title}</Text>
@@ -239,7 +238,7 @@ function RelayScreen() {
 
           {claimSignature ? (
             <View style={styles.receipt}>
-              <Text style={styles.label}>DEVNET CLAIM RECEIPT</Text>
+              <Text style={styles.label}>ANCHOR CLAIM RECEIPT · DEVNET</Text>
               <Text selectable style={styles.receiptText}>
                 {claimSignature}
               </Text>
@@ -260,7 +259,7 @@ function RelayScreen() {
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {walletAddress
-                    ? "Claim on Solana devnet"
+                    ? "Claim funded task on Solana devnet"
                     : "Connect wallet to claim"}
                 </Text>
               )}
@@ -309,7 +308,7 @@ function RelayScreen() {
                   <ActivityIndicator />
                 ) : (
                   <Text style={styles.primaryButtonText}>
-                    Anchor delivery on Solana devnet
+                    Submit evidence to Anchor on devnet
                   </Text>
                 )}
               </Pressable>
@@ -318,7 +317,7 @@ function RelayScreen() {
 
           {task.status === "delivered" && task.evidenceHash ? (
             <View style={styles.receipt}>
-              <Text style={styles.label}>DELIVERY ANCHORED</Text>
+              <Text style={styles.label}>ANCHOR DELIVERY · DEVNET</Text>
               <Text style={styles.receiptText}>
                 evidence {shortHash(task.evidenceHash)}
               </Text>
@@ -330,16 +329,18 @@ function RelayScreen() {
             </View>
           ) : null}
 
-          {task.status !== "open" ? (
-            <Pressable style={styles.resetButton} onPress={resetDemo}>
-              <Text style={styles.resetText}>Reset demo task</Text>
-            </Pressable>
-          ) : null}
+          <Pressable style={styles.resetButton} onPress={() => void refreshTask()}>
+            <Text style={styles.resetText}>Refresh on-chain task</Text>
+          </Pressable>
         </View>
 
+        {chainError ? (
+          <Text style={styles.chainError}>Devnet read: {chainError}</Text>
+        ) : null}
+
         <Text style={styles.footer}>
-          Built path: wallet → claim → camera evidence → content hash → delivery receipt.
-          Next: verifier acceptance → escrow payout → agent resume.
+          Live path: funded escrow → wallet claim → camera evidence → SHA-256 →
+          Anchor delivery. Next: verifier acceptance → escrow payout → agent resume.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -541,6 +542,12 @@ const styles = StyleSheet.create({
   resetText: {
     color: "#93a298",
     fontSize: 12,
+  },
+  chainError: {
+    color: "#d6a96f",
+    fontSize: 11,
+    lineHeight: 17,
+    paddingHorizontal: 4,
   },
   footer: {
     color: "#67746c",
