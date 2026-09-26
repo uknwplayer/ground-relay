@@ -25,6 +25,14 @@ export const GROUND_RELAY_REWARD_MINT = address(
   "So11111111111111111111111111111111111111112",
 );
 
+export const GROUND_RELAY_WORKER_TOKEN_ADDRESS = address(
+  "2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6",
+);
+
+export const SPL_TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+);
+
 export const GROUND_RELAY_POSTER_ADDRESS = address(
   "6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ",
 );
@@ -40,6 +48,9 @@ const CLAIM_TASK_DISCRIMINATOR = new Uint8Array([
 ]);
 const SUBMIT_EVIDENCE_DISCRIMINATOR = new Uint8Array([
   12, 169, 228, 194, 229, 31, 44, 39,
+]);
+const RELEASE_PAYMENT_DISCRIMINATOR = new Uint8Array([
+  24, 34, 191, 86, 145, 160, 183, 233,
 ]);
 
 const STATUS_BY_INDEX: readonly TaskStatus[] = [
@@ -147,6 +158,39 @@ export function getSubmitEvidenceInstruction(
       SUBMIT_EVIDENCE_DISCRIMINATOR,
       hexToBytes(evidenceHash),
     ),
+  };
+}
+
+export function getReleasePaymentInstruction(worker: string): Instruction {
+  return {
+    programAddress: GROUND_RELAY_PROGRAM_ADDRESS,
+    accounts: [
+      {
+        address: address(worker),
+        role: AccountRole.READONLY_SIGNER,
+      },
+      {
+        address: GROUND_RELAY_TASK_ADDRESS,
+        role: AccountRole.WRITABLE,
+      },
+      {
+        address: GROUND_RELAY_REWARD_MINT,
+        role: AccountRole.READONLY,
+      },
+      {
+        address: GROUND_RELAY_VAULT_ADDRESS,
+        role: AccountRole.WRITABLE,
+      },
+      {
+        address: GROUND_RELAY_WORKER_TOKEN_ADDRESS,
+        role: AccountRole.WRITABLE,
+      },
+      {
+        address: SPL_TOKEN_PROGRAM_ADDRESS,
+        role: AccountRole.READONLY,
+      },
+    ],
+    data: RELEASE_PAYMENT_DISCRIMINATOR,
   };
 }
 
