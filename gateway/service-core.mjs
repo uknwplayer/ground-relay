@@ -312,7 +312,9 @@ export function createRelayService({
     let task = await getTask(taskId);
     if (task.settlementSignature && task.settlementSignature !== signature) throw domainError("settlement_conflict");
     if (task.settlementSignature === signature && task.resume) {
-      if (task.resume.state === "delivered") return task;
+      const { state, autoRetriesUsed = 0, nextAttemptAt } = task.resume;
+      if (state === "delivered" || state === "terminal_failure" || state === "pending") return task;
+      if (state === "retryable_failure" && autoRetriesUsed >= RETRY_DELAYS_MS.length && !nextAttemptAt) return task;
       scheduledResumes.get(taskId)?.();
       scheduledResumes.delete(taskId);
       return attemptResume(taskId);
