@@ -60,9 +60,9 @@ Controlled devnet program ID:
 
 - [x] Deploy the Anchor program to devnet
 - [x] Verify the program account is executable at the controlled program ID
-- [ ] Record deployment transaction/signature and program metadata
-- [ ] Confirm upgrade authority and deployment ownership
-- [ ] Re-run SBF/IDL build and program CI after deployment if any fix is required
+- [x] Record deployment transaction/signature and program metadata
+- [x] Confirm upgrade authority and deployment ownership
+- [x] Confirm no program-code fix is required after deployment verification
 - [x] Write a deployment checkpoint
 
 **Rule:** do not regenerate the program identity or deployment Secrets merely to fix a deployment error.
