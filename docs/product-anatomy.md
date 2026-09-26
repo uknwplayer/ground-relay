@@ -784,11 +784,11 @@ This section intentionally distinguishes **proven**, **implemented but still bei
 | Transition guard unit tests | **Proven in CI** | Claim, submit, accept, release, cancel |
 | Reproducible SBF + IDL build | **Proven in CI** | Build workflow passes |
 | Controlled program identity | **Proven** | Program ID aligned with stored keypair |
-| First Anchor devnet deploy command | **Reported successful by deployment step** | Post-deploy verification step failed because the CLI verification command had no default signer configured; independent verification is the next checkpoint action |
-| Real funded task vault | **Next integration milestone** | Required before real payout demo |
-| Mobile direct `claim_task` | **Planned next** | Replaces memo prototype |
-| Mobile direct `submit_evidence` | **Planned next** | Replaces memo prototype |
-| Acceptance + real token payout | **Planned** | M6 roadmap |
+| Anchor program on devnet | **Proven** | Signer-free RPC confirms the controlled program account is present and executable |
+| Real funded task vault | **Proven** | Deterministic task PDA is OPEN with a 0.001 devnet WSOL vault |
+| Mobile direct `claim_task` | **Implemented; device validation pending** | Replaces memo prototype |
+| Mobile direct `submit_evidence` | **Implemented; device validation pending** | Commits the camera evidence SHA-256 to the real task |
+| Acceptance + real token payout | **Prepared; end-to-end validation pending** | Poster acceptance workflow and worker-signed payout UI are implemented |
 | Agent callback/resume | **Prototype gateway exists; full E2E planned** | M7 roadmap |
 | Production/mainnet readiness | **Not claimed** | Hackathon development remains devnet-first |
 
@@ -816,9 +816,9 @@ The guarded deployment workflow validated:
 - Anchor reported `Deploy success`;
 - IDL metadata initialization completed.
 
-The workflow was marked failed only at the subsequent verification command because that CLI invocation expected a default signer configuration. The project should independently query the program account before calling the deployment milestone fully closed.
+The original deployment workflow was marked failed only at the subsequent verification command because that CLI invocation expected a default signer configuration. A later signer-free JSON-RPC workflow independently confirmed that the same program account is present and executable on devnet.
 
-This nuance is recorded rather than hidden.
+The project also created and verified a deterministic real escrow fixture using devnet WSOL. The task vault contains the full 0.001 WSOL demo reward before the worker claims it.
 
 ---
 
