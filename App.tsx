@@ -26,6 +26,7 @@ import type { RelayTask } from "./src/protocol/types";
 import {
   fetchGroundRelayTask,
   getClaimTaskInstruction,
+  getReleasePaymentInstruction,
   getSubmitEvidenceInstruction,
 } from "./src/solana/ground-relay";
 
@@ -54,6 +55,7 @@ function RelayScreen() {
   const [task, setTask] = useState<RelayTask>(demoTask);
   const [claimSignature, setClaimSignature] = useState<string>();
   const [deliverySignature, setDeliverySignature] = useState<string>();
+  const [payoutSignature, setPayoutSignature] = useState<string>();
   const [capturedEvidence, setCapturedEvidence] =
     useState<CapturedPhotoEvidence>();
   const [busy, setBusy] = useState(false);
@@ -64,6 +66,10 @@ function RelayScreen() {
   const canCapture = task.status === "claimed" && Boolean(walletAddress);
   const canSubmit =
     task.status === "claimed" && Boolean(walletAddress) && Boolean(capturedEvidence);
+  const canRelease =
+    task.status === "accepted" &&
+    Boolean(walletAddress) &&
+    task.worker === walletAddress;
 
   const criteriaDone = useMemo(
     () => task.criteria.filter((criterion) => criterion.required).length,
@@ -225,6 +231,28 @@ function RelayScreen() {
     }
   }
 
+  async function releasePayout() {
+    if (!walletAddress || !canRelease) return;
+
+    setBusy(true);
+    try {
+      const nextSignature = await sendTransactions([
+        getReleasePaymentInstruction(walletAddress),
+      ]);
+
+      const signature = nextSignature.toString();
+      setPayoutSignature(signature);
+      await waitForConfirmation(signature);
+      await refreshTask();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Escrow payout failed";
+      Alert.alert("Payout failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
@@ -373,6 +401,48 @@ function RelayScreen() {
             </View>
           ) : null}
 
+          {task.status === "accepted" ? (
+            <>
+              <View style={styles.receipt}>
+                <Text style={styles.label}>DELIVERY ACCEPTED · DEVNET</Text>
+                <Text style={styles.receiptText}>
+                  Escrow payout is ready for the assigned worker.
+                </Text>
+              </View>
+
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  (!canRelease || busy) && styles.disabled,
+                ]}
+                disabled={!canRelease || busy}
+                onPress={releasePayout}
+              >
+                {busy ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    Release 0.001 WSOL payout
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          ) : null}
+
+          {task.status === "paid" ? (
+            <View style={styles.receipt}>
+              <Text style={styles.label}>ESCROW PAID · DEVNET</Text>
+              <Text style={styles.receiptText}>
+                0.001 WSOL released to the worker token account.
+              </Text>
+              {payoutSignature ? (
+                <Text selectable style={styles.receiptText}>
+                  {payoutSignature}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <Pressable style={styles.resetButton} onPress={() => void refreshTask()}>
             <Text style={styles.resetText}>Refresh on-chain task</Text>
           </Pressable>
@@ -384,7 +454,7 @@ function RelayScreen() {
 
         <Text style={styles.footer}>
           Live path: funded escrow → wallet claim → camera evidence → SHA-256 →
-          Anchor delivery. Next: verifier acceptance → escrow payout → agent resume.
+          Anchor delivery → verifier acceptance → worker payout. Next: agent resume.
         </Text>
       </ScrollView>
     </SafeAreaView>
