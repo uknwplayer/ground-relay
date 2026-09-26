@@ -63,6 +63,9 @@ export function createRelayServer({ service }) {
       if (req.method === "GET" && url.pathname === "/health") {
         return json(res, 200, { ok: true, service: "ground-relay-agent-gateway" });
       }
+      if (req.method === "GET" && url.pathname === "/v1/tasks") {
+        return json(res, 200, { tasks: await service.listTasks() });
+      }
       if (req.method === "POST" && url.pathname === "/v1/tasks") {
         const body = await readJson(req);
         const task = await service.createTask(body, { idempotencyKey: idempotencyHeader(req) });
