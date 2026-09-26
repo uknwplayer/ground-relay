@@ -77,6 +77,7 @@ export function createRelayService({
   async function createTask(input, { idempotencyKey } = {}) {
     validateCreateInput(input, allowLoopbackHttp);
     const hash = requestHash(input);
+
     return store.transaction((draft) => {
       if (idempotencyKey) {
         const existing = draft.idempotency[idempotencyKey];
@@ -87,6 +88,7 @@ export function createRelayService({
           return structuredClone(prior);
         }
       }
+
       const id = input.id ?? randomUUID();
       if (draft.tasks[id]) throw domainError("task_exists");
       const task = {
@@ -113,7 +115,9 @@ export function createRelayService({
       onChain.poster !== task.poster ||
       onChain.mint !== task.rewardMint ||
       String(onChain.rewardAtomic) !== String(task.rewardAtomic)
-    ) throw domainError("chain_mismatch");
+    ) {
+      throw domainError("chain_mismatch");
+    }
   }
 
   async function bindTask(taskId, binding) {
@@ -130,15 +134,17 @@ export function createRelayService({
       ) return task;
       throw domainError("binding_conflict");
     }
+
     let onChain;
     try {
       onChain = await chain.readTask(binding.taskPda);
     } catch (error) {
-      if (error?.code) throw error;
+      if (error?.code === "chain_mismatch") throw error;
       throw domainError("chain_unavailable", error instanceof Error ? error.message : String(error));
     }
     assertChainIdentity(task, onChain);
     const observedAt = new Date(clock.now()).toISOString();
+
     return store.transaction((draft) => {
       const current = draft.tasks[taskId];
       if (!current) throw domainError("task_not_found");
@@ -243,6 +249,7 @@ export function createRelayService({
     if (task.status !== "paid" || !task.resume) throw domainError("resume_not_ready");
     if (task.resume.state === "delivered") return task;
     if (automatic && (task.resume.autoRetriesUsed ?? 0) >= RETRY_DELAYS_MS.length) return task;
+
     const attemptAtMs = clock.now();
     task = await store.transaction((draft) => {
       const current = draft.tasks[taskId];
@@ -254,6 +261,7 @@ export function createRelayService({
       delete current.resume.nextAttemptAt;
       return structuredClone(current);
     });
+
     const event = buildResumeEvent({
       task,
       settlementSignature: task.settlementSignature,
@@ -265,13 +273,16 @@ export function createRelayService({
       idempotencyKey: task.resume.idempotencyKey,
       payload: event.payload,
     });
+
     let nextAttemptMs;
     task = await store.transaction((draft) => {
       const current = draft.tasks[taskId];
       const resume = current.resume;
+      if (resume.state === "delivered") return structuredClone(current);
       resume.lastStatusCode = result.statusCode;
       if (result.error) resume.lastError = result.error;
       else delete resume.lastError;
+
       if (result.classification === "delivered") {
         resume.state = "delivered";
         resume.deliveredAt = new Date(clock.now()).toISOString();
@@ -285,10 +296,13 @@ export function createRelayService({
         if (used < RETRY_DELAYS_MS.length) {
           nextAttemptMs = clock.now() + RETRY_DELAYS_MS[used];
           resume.nextAttemptAt = new Date(nextAttemptMs).toISOString();
-        } else delete resume.nextAttemptAt;
+        } else {
+          delete resume.nextAttemptAt;
+        }
       }
       return structuredClone(current);
     });
+
     if (nextAttemptMs !== undefined) scheduleResume(taskId, nextAttemptMs);
     return task;
   }
@@ -299,6 +313,7 @@ export function createRelayService({
     if (task.settlementSignature && task.settlementSignature !== signature) throw domainError("settlement_conflict");
     if (task.settlementSignature === signature && task.resume) return task;
     if (!task.chain) throw domainError("settlement_not_confirmed");
+
     let onChain;
     try {
       onChain = await readAuthoritative(task);
@@ -312,6 +327,7 @@ export function createRelayService({
     }
     task = await persistSync(taskId, onChain);
     if (!task.callbackUrl) throw domainError("callback_not_configured");
+
     const paidAtObserved = new Date(clock.now()).toISOString();
     task = await store.transaction((draft) => {
       const current = draft.tasks[taskId];
