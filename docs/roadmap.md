@@ -177,18 +177,26 @@ Detailed proof: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 
 ## M8 — Product hardening
 
-- [ ] Task inbox backed by real task data
-- [ ] Receipt/history screen
-- [~] Wallet/network recovery states — on-chain reconciliation for ambiguous MWA transaction returns is implemented and regression-tested
-- [ ] App restart/state restoration
+- [x] Task inbox backed by the Gateway worker-safe task list, with selected-task PDA reconciliation against Solana
+- [~] Receipt/history screen — claim/delivery/payout signatures and evidence hash are restart-safe session data, but a dedicated history screen is still pending
+- [~] Wallet/network recovery states — ambiguous MWA transaction returns are reconciled on-chain; Gateway/Solana outages now degrade to read-only cached state
+- [x] App restart/state restoration with versioned AsyncStorage state and no automatic transaction replay
 - [ ] Deep-link or QR handoff where useful
 - [ ] Evidence privacy review
 - [ ] Security review of account constraints, authorities, replay/idempotency, callback/SSRF policy, and payment invariants
 - [ ] Define and implement task/vault rent reclamation policy for terminal tasks
 - [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK/Gateway workflows remain separate
-- [ ] Remove or clearly label all demo-only values and memo prototype behavior
+- [~] Remove or clearly label all demo-only values and memo prototype behavior — the mobile app no longer starts from `demoTask` and generic payout is fail-closed, but a complete repository-wide sweep remains
 
-**Exit condition:** the demo is robust enough to repeat without manual repair.
+First M8 slice proof:
+
+- root CI run: `36265032725` — **83/83 tests PASS**, typecheck PASS
+- Android standalone APK run: `36265450015` — release APK build PASS, artifact-upload step PASS
+- checkpoint: `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
+
+Remaining M8 work includes a dedicated history view, non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, evidence privacy review, rent reclamation policy, and callback retry-semantics tightening.
+
+**Exit condition:** the demo is robust enough to repeat without manual repair. **Not yet complete.**
 
 ## M9 — Release and hackathon submission
 
