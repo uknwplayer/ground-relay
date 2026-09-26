@@ -56,3 +56,15 @@ test("chain decoder rejects too-short account data", () => {
 test("chain decoder rejects unknown status index", () => {
   assert.throws(() => decodeGroundRelayTaskAccount({ data: fixture({ status: 9 }), owner: PROGRAM_ID, expectedProgramId: PROGRAM_ID }), /status/i);
 });
+
+test("chain decoder identity and layout rejections carry chain_mismatch code", () => {
+  const cases = [
+    () => decodeGroundRelayTaskAccount({ data: fixture(), owner: "11111111111111111111111111111111", expectedProgramId: PROGRAM_ID }),
+    () => { const data = fixture(); data[0] ^= 1; return decodeGroundRelayTaskAccount({ data, owner: PROGRAM_ID, expectedProgramId: PROGRAM_ID }); },
+    () => decodeGroundRelayTaskAccount({ data: new Uint8Array(186), owner: PROGRAM_ID, expectedProgramId: PROGRAM_ID }),
+    () => decodeGroundRelayTaskAccount({ data: fixture({ status: 9 }), owner: PROGRAM_ID, expectedProgramId: PROGRAM_ID }),
+  ];
+  for (const operation of cases) {
+    assert.throws(operation, (error) => error.code === "chain_mismatch");
+  }
+});
