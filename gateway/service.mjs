@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { validateCallbackUrl } from "./callbacks.mjs";
+import { buildResumeEvent, validateCallbackUrl } from "./callbacks.mjs";
 
 export const GROUND_RELAY_PROGRAM_ID = "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap";
 
 const STATUS_RANK = { open: 0, claimed: 1, delivered: 2, accepted: 3, paid: 4 };
+const RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000];
 
 function domainError(code, message = code) {
   const error = new Error(message);
@@ -59,6 +60,14 @@ export function createRelayService({
   allowLoopbackHttp = false,
   programId = GROUND_RELAY_PROGRAM_ID,
 }) {
+  const effectiveScheduler = scheduler ?? {
+    schedule(atMs, callback) {
+      const timer = setTimeout(() => void callback(), Math.max(0, atMs - Date.now()));
+      return () => clearTimeout(timer);
+    },
+  };
+  const scheduledResumes = new Map();
+
   async function getTask(taskId) {
     const task = await store.getTask(taskId);
     if (!task) throw domainError("task_not_found");
@@ -68,7 +77,6 @@ export function createRelayService({
   async function createTask(input, { idempotencyKey } = {}) {
     validateCreateInput(input, allowLoopbackHttp);
     const hash = requestHash(input);
-
     return store.transaction((draft) => {
       if (idempotencyKey) {
         const existing = draft.idempotency[idempotencyKey];
@@ -79,7 +87,6 @@ export function createRelayService({
           return structuredClone(prior);
         }
       }
-
       const id = input.id ?? randomUUID();
       if (draft.tasks[id]) throw domainError("task_exists");
       const task = {
@@ -106,9 +113,7 @@ export function createRelayService({
       onChain.poster !== task.poster ||
       onChain.mint !== task.rewardMint ||
       String(onChain.rewardAtomic) !== String(task.rewardAtomic)
-    ) {
-      throw domainError("chain_mismatch");
-    }
+    ) throw domainError("chain_mismatch");
   }
 
   async function bindTask(taskId, binding) {
@@ -125,7 +130,6 @@ export function createRelayService({
       ) return task;
       throw domainError("binding_conflict");
     }
-
     let onChain;
     try {
       onChain = await chain.readTask(binding.taskPda);
@@ -135,7 +139,6 @@ export function createRelayService({
     }
     assertChainIdentity(task, onChain);
     const observedAt = new Date(clock.now()).toISOString();
-
     return store.transaction((draft) => {
       const current = draft.tasks[taskId];
       if (!current) throw domainError("task_not_found");
@@ -185,8 +188,7 @@ export function createRelayService({
     return chainRank < currentRank ? current.status : onChain.status;
   }
 
-  async function syncTask(taskId) {
-    const task = await getTask(taskId);
+  async function readAuthoritative(task) {
     if (!task.chain) throw domainError("task_not_bound");
     let onChain;
     try {
@@ -197,8 +199,11 @@ export function createRelayService({
     }
     if (onChain.taskPda && onChain.taskPda !== task.chain.taskPda) throw domainError("chain_mismatch");
     assertChainIdentity(task, onChain);
-    const observedAt = new Date(clock.now()).toISOString();
+    return onChain;
+  }
 
+  async function persistSync(taskId, onChain) {
+    const observedAt = new Date(clock.now()).toISOString();
     return store.transaction((draft) => {
       const current = draft.tasks[taskId];
       if (!current?.chain) throw domainError("task_not_bound");
@@ -214,7 +219,151 @@ export function createRelayService({
     });
   }
 
-  async function start() {}
+  async function syncTask(taskId) {
+    const task = await getTask(taskId);
+    const onChain = await readAuthoritative(task);
+    return persistSync(taskId, onChain);
+  }
+
+  function scheduleResume(taskId, atMs) {
+    scheduledResumes.get(taskId)?.();
+    const cancel = effectiveScheduler.schedule(atMs, async () => {
+      scheduledResumes.delete(taskId);
+      try {
+        await attemptResume(taskId, { automatic: true });
+      } catch {
+        // Persisted state is the recovery mechanism; a later start/manual retry can resume.
+      }
+    });
+    scheduledResumes.set(taskId, cancel);
+  }
+
+  async function attemptResume(taskId, { automatic = false } = {}) {
+    let task = await getTask(taskId);
+    if (task.status !== "paid" || !task.resume) throw domainError("resume_not_ready");
+    if (task.resume.state === "delivered") return task;
+    if (automatic && (task.resume.autoRetriesUsed ?? 0) >= RETRY_DELAYS_MS.length) return task;
+    const attemptAtMs = clock.now();
+    task = await store.transaction((draft) => {
+      const current = draft.tasks[taskId];
+      if (!current?.resume || current.status !== "paid") throw domainError("resume_not_ready");
+      current.resume.attempts = (current.resume.attempts ?? 0) + 1;
+      if (automatic) current.resume.autoRetriesUsed = (current.resume.autoRetriesUsed ?? 0) + 1;
+      current.resume.state = "pending";
+      current.resume.lastAttemptAt = new Date(attemptAtMs).toISOString();
+      delete current.resume.nextAttemptAt;
+      return structuredClone(current);
+    });
+    const event = buildResumeEvent({
+      task,
+      settlementSignature: task.settlementSignature,
+      paidAtObserved: task.resume.paidAtObserved,
+    });
+    const result = await callbackTransport({
+      url: task.callbackUrl,
+      eventId: task.resume.eventId,
+      idempotencyKey: task.resume.idempotencyKey,
+      payload: event.payload,
+    });
+    let nextAttemptMs;
+    task = await store.transaction((draft) => {
+      const current = draft.tasks[taskId];
+      const resume = current.resume;
+      resume.lastStatusCode = result.statusCode;
+      if (result.error) resume.lastError = result.error;
+      else delete resume.lastError;
+      if (result.classification === "delivered") {
+        resume.state = "delivered";
+        resume.deliveredAt = new Date(clock.now()).toISOString();
+        delete resume.nextAttemptAt;
+      } else if (result.classification === "terminal_failure") {
+        resume.state = "terminal_failure";
+        delete resume.nextAttemptAt;
+      } else {
+        resume.state = "retryable_failure";
+        const used = resume.autoRetriesUsed ?? 0;
+        if (used < RETRY_DELAYS_MS.length) {
+          nextAttemptMs = clock.now() + RETRY_DELAYS_MS[used];
+          resume.nextAttemptAt = new Date(nextAttemptMs).toISOString();
+        } else delete resume.nextAttemptAt;
+      }
+      return structuredClone(current);
+    });
+    if (nextAttemptMs !== undefined) scheduleResume(taskId, nextAttemptMs);
+    return task;
+  }
+
+  async function notifyPaid(taskId, { signature } = {}) {
+    if (!signature) throw domainError("settlement_not_confirmed");
+    let task = await getTask(taskId);
+    if (task.settlementSignature && task.settlementSignature !== signature) throw domainError("settlement_conflict");
+    if (task.settlementSignature === signature && task.resume) return task;
+    if (!task.chain) throw domainError("settlement_not_confirmed");
+    let onChain;
+    try {
+      onChain = await readAuthoritative(task);
+    } catch (error) {
+      if (error?.code === "task_not_bound") throw domainError("settlement_not_confirmed");
+      throw error;
+    }
+    if (onChain.status !== "paid") {
+      await persistSync(taskId, onChain);
+      throw domainError("settlement_not_confirmed");
+    }
+    task = await persistSync(taskId, onChain);
+    if (!task.callbackUrl) throw domainError("callback_not_configured");
+    const paidAtObserved = new Date(clock.now()).toISOString();
+    task = await store.transaction((draft) => {
+      const current = draft.tasks[taskId];
+      if (current.settlementSignature && current.settlementSignature !== signature) throw domainError("settlement_conflict");
+      current.settlementSignature = signature;
+      if (!current.resume) {
+        const event = buildResumeEvent({ task: current, settlementSignature: signature, paidAtObserved });
+        current.resume = {
+          eventId: event.eventId,
+          idempotencyKey: event.idempotencyKey,
+          state: "pending",
+          attempts: 0,
+          autoRetriesUsed: 0,
+          paidAtObserved,
+        };
+      }
+      return structuredClone(current);
+    });
+    if (task.resume.state === "delivered") return task;
+    return attemptResume(taskId);
+  }
+
+  async function retryResume(taskId) {
+    let task = await getTask(taskId);
+    if (task.status !== "paid" || !task.resume) throw domainError("resume_not_ready");
+    if (task.resume.state === "delivered") return task;
+    scheduledResumes.get(taskId)?.();
+    scheduledResumes.delete(taskId);
+    await store.transaction((draft) => {
+      const current = draft.tasks[taskId];
+      current.resume.autoRetriesUsed = 0;
+      current.resume.state = "pending";
+      delete current.resume.nextAttemptAt;
+    });
+    return attemptResume(taskId);
+  }
+
+  async function restorePendingRetries() {
+    const tasks = await store.listTasks();
+    const now = clock.now();
+    for (const task of tasks) {
+      const resume = task.resume;
+      if (!resume || resume.state === "delivered" || resume.state === "terminal_failure") continue;
+      if ((resume.autoRetriesUsed ?? 0) >= RETRY_DELAYS_MS.length && !resume.nextAttemptAt) continue;
+      const requested = resume.nextAttemptAt ? Date.parse(resume.nextAttemptAt) : now;
+      scheduleResume(task.id, Math.max(now, requested));
+    }
+  }
+
+  async function start() {
+    await restorePendingRetries();
+  }
 
   async function claimLocal(taskId, input) {
     return store.transaction((draft) => {
@@ -266,5 +415,8 @@ export function createRelayService({
     claimLocal,
     deliverLocal,
     verifyLocal,
+    notifyPaid,
+    retryResume,
+    restorePendingRetries,
   };
 }
