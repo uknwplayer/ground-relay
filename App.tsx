@@ -21,6 +21,7 @@ import {
   capturePhotoEvidence,
   type CapturedPhotoEvidence,
 } from "./src/evidence/capture";
+import { discardCapturedEvidence } from "./src/evidence/retention";
 import { fetchTaskInbox } from "./src/inbox/api";
 import { resolveGatewayBaseUrl } from "./src/inbox/config";
 import {
@@ -140,6 +141,28 @@ function RelayScreen() {
     }
   }
 
+  async function discardLocalEvidence(
+    evidence: CapturedPhotoEvidence | undefined = capturedEvidence,
+  ): Promise<boolean> {
+    if (!evidence) return true;
+
+    try {
+      await discardCapturedEvidence(evidence);
+      if (capturedEvidence?.uri === evidence.uri) {
+        setCapturedEvidence(undefined);
+      }
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to remove local evidence photo";
+      Alert.alert(
+        "Local evidence cleanup failed",
+        `${message}\n\nThe photo may still remain on this device.`,
+      );
+      return false;
+    }
+  }
+
   async function refreshInbox(
     baseInbox: InboxTaskSummary[] = inbox,
     baseSession: SelectedTaskSession | undefined = session,
@@ -159,6 +182,13 @@ function RelayScreen() {
         fresh,
         new Date().toISOString(),
       );
+      if (
+        capturedEvidence &&
+        baseSession?.taskId &&
+        merged.selectedTask?.taskId !== baseSession.taskId
+      ) {
+        await discardLocalEvidence(capturedEvidence);
+      }
       setAuthoritative(undefined);
       setInbox(fresh);
       setSession(merged.selectedTask);
@@ -245,7 +275,6 @@ function RelayScreen() {
   }, []);
 
   useEffect(() => {
-    setCapturedEvidence(undefined);
     setAuthoritative(undefined);
     setChainError(undefined);
 
@@ -264,20 +293,22 @@ function RelayScreen() {
   ]);
 
   async function chooseTask(task: InboxTaskSummary) {
+    if (capturedEvidence && session?.taskId !== task.id) {
+      await discardLocalEvidence(capturedEvidence);
+    }
     const next = selectTaskSession(task, new Date().toISOString());
     setSelectedView("task");
     setSession(next);
-    setCapturedEvidence(undefined);
     setAuthoritative(undefined);
     setChainError(undefined);
     await persist(inbox, next);
   }
 
   async function clearSelection() {
+    await discardLocalEvidence(capturedEvidence);
     setSelectedView("task");
     setSession(undefined);
     setAuthoritative(undefined);
-    setCapturedEvidence(undefined);
     setChainError(undefined);
     await persist(inbox, undefined);
   }
@@ -398,8 +429,14 @@ function RelayScreen() {
 
     setBusy(true);
     try {
+      const previousEvidence = capturedEvidence;
       const evidence = await capturePhotoEvidence(selectedTask.id);
-      if (evidence) setCapturedEvidence(evidence);
+      if (evidence) {
+        if (previousEvidence && previousEvidence.uri !== evidence.uri) {
+          await discardLocalEvidence(previousEvidence);
+        }
+        setCapturedEvidence(evidence);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Evidence capture failed";
@@ -420,7 +457,8 @@ function RelayScreen() {
       return;
     }
 
-    const evidenceHash = capturedEvidence.sha256;
+    const evidence = capturedEvidence;
+    const evidenceHash = evidence.sha256;
     setBusy(true);
     try {
       await updateSession({ expectedEvidenceHash: evidenceHash });
@@ -437,11 +475,14 @@ function RelayScreen() {
         expectedEvidenceHash: evidenceHash,
       });
       await waitForConfirmation(signature);
-      await refreshSelectedTask(selectedTask);
+      if (await reconcileExpectedTransition("submitEvidence", evidenceHash)) {
+        await discardLocalEvidence(evidence);
+      }
     } catch (error) {
       if (
         await reconcileExpectedTransition("submitEvidence", evidenceHash)
       ) {
+        await discardLocalEvidence(evidence);
         return;
       }
       const message =
@@ -681,6 +722,12 @@ function RelayScreen() {
                   </View>
                 </View>
               ) : null}
+
+              <Text style={styles.meta}>
+                Photo stays on this device. Only a task-bound SHA-256 is submitted.
+                The local capture is removed after confirmed delivery, retake, or
+                leaving this task; cleanup failures are surfaced.
+              </Text>
 
               <Pressable
                 style={[
