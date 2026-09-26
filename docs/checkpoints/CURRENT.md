@@ -2,20 +2,20 @@
 
 **Local date:** 2026-09-25  
 **UTC date:** 2026-09-26  
-**Stage:** M6 — settlement failure paths and lifecycle hardening  
+**Stage:** M7 — Agent Gateway and resume loop  
 **Repository:** `uknwplayer/ground-relay`
 
-## Current verified state
+## Verified product proof
 
-Ground Relay has now completed the real physical-Android Anchor escrow path on Solana devnet:
+Ground Relay has completed the real physical-Android Anchor escrow path on Solana devnet:
 
 `funded escrow -> mobile wallet claim -> camera evidence -> SHA-256 -> Anchor delivery -> poster acceptance -> worker payout`
 
-The canonical task completed:
+Canonical task lifecycle:
 
 `OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
 
-**M5 is complete.** The earlier memo-backed prototype is no longer the strongest proof of the product. The direct Anchor/mobile settlement flow is now independently verified.
+**M5 and M6 are complete.**
 
 ## Canonical devnet identity
 
@@ -23,160 +23,152 @@ Program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-Upgrade/deployer/poster address:
+Controlled upgrade/deployer/poster address:
 
 `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
 
-The program is executable on devnet and remains controlled by the expected upgrade authority.
+Do not regenerate the program identity or replace deployment Secrets.
 
-Do not regenerate the program identity or replace the deployment Secrets.
-
-## Proven escrow fixture — now consumed and PAID
-
-Fixture:
-
-`ground-relay-devnet-escrow-v1`
+## Canonical physical payout fixture
 
 - task ID: `e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662`
 - task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
 - vault PDA: `FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm`
 - poster: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
 - worker: `7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
-- WSOL mint: `So11111111111111111111111111111111111111112`
-- worker WSOL token account: `2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
+- worker WSOL account: `2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
+- mint: `So11111111111111111111111111111111111111112`
 - reward: `1,000,000` atomic units = `0.001 WSOL`
+- evidence SHA-256: `7d29069a59aec691ef133d7b7813cdd6e0d4a2ffc807e0887f9a5ad5a59ba802`
 - final state: `PAID`
 
-This fixture must **not** be treated as OPEN or reused as though it were unfunded. New M6 failure-path fixtures should be intentionally isolated from this proof.
-
-## Physical Android proof
-
-The standalone Android app connected to the worker's Solflare wallet and successfully exercised the deployed Ground Relay program.
-
-Observed and independently verified transitions:
-
-1. `claim_task` moved the task from `OPEN` to `CLAIMED` and assigned the expected worker.
-2. The Android app captured evidence and computed a SHA-256 hash locally.
-3. `submit_evidence` moved the task to `DELIVERED` with the exact device hash.
-4. The guarded poster workflow executed `accept_task`, moving the task to `ACCEPTED`.
-5. The physical worker wallet executed `release_payment`, moving the task to `PAID` and transferring the escrow reward.
-
-Evidence hash:
-
-`7d29069a59aec691ef133d7b7813cdd6e0d4a2ffc807e0887f9a5ad5a59ba802`
-
-## Acceptance proof
-
-Guarded workflow:
-
-`Accept delivered devnet task`
-
-Run ID:
-
-`36207042540`
-
-Result:
-
-- status before: `delivered`
-- status after: `accepted`
-- verification: PASS
-
-`accept_task` signature:
+Acceptance signature:
 
 `4QVs7r2xBgSNzZHm8z3N5jbJZKVNCAT4cXEw9pTCqVRv79DchyYDfjnUXUsDJCVWuWFZCZ6WJYE1zTBrDoHSF8Hd`
 
-## Payout proof
-
-Worker-signed `release_payment` signature:
+Worker payout signature:
 
 `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
 
-Independent signer-free inspection after payout:
+Independent post-payout inspection:
 
-- workflow: `Inspect devnet task state`
-- run ID: `36207197941`
-- result: **success**
-- task status: `paid`
+- workflow run: `36207197941`
+- status: `paid`
 - vault amount: `0`
 - worker token amount: `1,000,000`
-- worker token owner: expected worker
-- evidence hash: unchanged and correct
-- mint/vault/token invariants: PASS
+- evidence hash: exact device match
+- invariant checks: PASS
 
-This proves the escrowed `0.001 WSOL` left the task vault and arrived in the worker token account.
+The canonical fixture is historical proof and must not be reset or represented as a fresh OPEN task.
 
-## Mobile Wallet Adapter reconciliation hardening
+## MWA return hardening
 
-Physical validation exposed a wallet-return ambiguity: Solflare can submit a transaction successfully while the Android MWA session later returns `java.util.concurrent.CancellationException` as control returns to the app.
+Physical validation exposed a Mobile Wallet Adapter edge case where Solflare can successfully submit a transaction and the Android session can still return `java.util.concurrent.CancellationException` to the app.
 
-The first direct Anchor claim exhibited this exact behavior. The app initially displayed a false failure, while independent on-chain inspection showed the task was already `CLAIMED` by the correct worker.
+Ground Relay now reconciles an ambiguous wallet return against authoritative on-chain state before showing a failure.
 
-The client has now been hardened so an ambiguous wallet exception triggers authoritative on-chain reconciliation before a failure is displayed.
+Verification:
 
-Regression coverage verifies:
-
-- claim reconciliation after on-chain advancement
-- delivery reconciliation only when the evidence hash matches
-- payout reconciliation only after `PAID`
-- wrong-worker state never reconciles as success
-
-CI verification:
-
-- run ID: `36207598375`
+- CI run: `36207598375`
 - Node tests: `6/6` passed
 - TypeScript typecheck: passed
 
-The corrected standalone APK build is generated by the normal Android workflow from the hardened client source.
+## M6 adversarial/lifecycle proof
 
-## Documentation
+Isolated workflow:
 
-Evaluator-facing documentation remains organized from the repository README.
+`M6 devnet settlement guards`
 
-Key documents:
+Run ID:
 
-- `docs/product-anatomy.md` — complete product/system anatomy
-- `docs/roadmap.md` — execution roadmap
-- `docs/architecture.md` — concise architecture
-- `docs/escrow-protocol.md` — on-chain escrow design
-- `docs/openapi.yaml` — Agent Gateway API contract
-- `docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md` — detailed first payout proof
-- `docs/checkpoints/CURRENT.md` — this canonical handoff
+`36208008464`
 
-## M6 status
+Result: **PASS**
 
-Already proven:
+Devnet rejections/proofs completed:
 
-- poster/verifier acceptance with `accept_task`
-- real worker-signed `release_payment`
-- expected worker token balance increase
-- full `OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID` path
+- wrong worker evidence -> `WrongWorker`
+- payout before acceptance -> `InvalidStatus`
+- wrong poster acceptance -> `WrongPoster`
+- second payout after PAID -> `InvalidStatus`
+- worker balance unchanged after rejected second payout
+- vault remained zero after rejected second payout
+- claim of PAID task -> `InvalidStatus`
+- expired claim -> `TaskExpired`
+- `cancel_open_task` refunded escrow exactly
+- second cancellation -> `InvalidStatus`
+- claim of CANCELLED task -> `InvalidStatus`
 
-Still required for M6 hardening:
+Cancellation signature:
 
-- prove a paid task cannot pay twice
-- exercise wrong-worker failure
-- exercise wrong-poster failure
-- exercise wrong-mint failure
-- exercise underfunded-vault failure
-- exercise expired-task failure
-- exercise invalid-state failures
-- test `cancel_open_task` and refund
-- define/implement expiry/reopen behavior
-- decide and test account/vault rent reclamation behavior
+`3YfiDojJxsmCajYxvcc3HZP2MZ3RVm2vf14VLhtLjw8n4JrzHJ4jb7yqNbzRpgXNqQaKmxUygdovkpwR8hCtE9ZC`
+
+Double-pay guard fixture payout signature:
+
+`5Mg25EWwrSiPhJdibUCThZcKNeRDGUXBzr2H8j6wj4TGqozTpZN5WX1z18yth7CRZGpnXbkr4U7ZhXtLJCrnucnQ`
+
+Detailed record:
+
+`docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
+
+## Expiry policy
+
+The demonstrated policy is now explicit:
+
+1. an expired OPEN task becomes unclaimable;
+2. the poster cancels it and recovers escrow;
+3. a reopen is represented by a new task ID rather than reviving a historical task.
+
+This keeps cancelled/terminal task history immutable.
+
+## Remaining hardening intentionally deferred
+
+`WrongMint` and `EscrowUnderfunded` remain validator defense-in-depth checks and have unit coverage. Correctly initialized legacy-token task/vault state structurally prevents those conditions through the public instruction set.
+
+Task/vault rent reclamation is moved to M8 because it requires a deliberate account-closure/API policy and is not necessary for proving settlement correctness.
+
+## M7 starting state
+
+A prototype Agent Gateway already exists in `gateway/server.mjs` with:
+
+- `POST /v1/tasks`
+- task status retrieval
+- claim transition
+- evidence delivery transition
+- verifier acceptance transition
+- paid transition
+- a resume payload returned after payment
+
+The current gateway is still primarily an in-memory protocol prototype. M7 must turn it into a credible agent-resume loop by adding:
+
+- durable external task ID <-> on-chain task PDA mapping
+- idempotency
+- authoritative chain synchronization/status
+- actual resume callback delivery
+- retry/failure semantics
+- a seeded end-to-end agent-blocked -> human -> paid -> agent-resumed proof
+
+## Key documents
+
+- `docs/product-anatomy.md`
+- `docs/roadmap.md`
+- `docs/architecture.md`
+- `docs/escrow-protocol.md`
+- `docs/openapi.yaml`
+- `docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`
+- `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
+- `docs/checkpoints/CURRENT.md`
 
 ## Do not repeat
 
-- Do **not** run the devnet identity bootstrap again.
+- Do **not** run devnet identity bootstrap again.
 - Do **not** regenerate the program keypair.
 - Do **not** overwrite deployment GitHub Secrets.
-- Do **not** change `declare_id` or the controlled program ID for ordinary errors.
-- Do **not** recreate the original M4 fixture and pretend it is the same proof; it is now legitimately `PAID`.
-- Do **not** use the old memo receipts as the primary proof of Anchor integration.
-- Do **not** commit keypairs, seed phrases, wallet secrets, or auth tokens.
-- Do **not** authorize a mainnet deployment from this checkpoint.
+- Do **not** reset/recreate the canonical paid fixture as if it were the same proof.
+- Do **not** use old memo receipts as the primary Anchor proof.
+- Do **not** commit keys, seed phrases, wallet secrets, or auth tokens.
+- Do **not** authorize mainnet deployment from this checkpoint.
 
 ## Next recommended action
 
-Continue M6 without requiring another physical-wallet action yet.
-
-Create isolated devnet/test fixtures for the negative settlement paths, starting with **double-pay prevention and invalid-state guards**, then cancellation/refund. Keep the successful paid fixture immutable as the canonical end-to-end proof.
+Continue M7 autonomously by hardening the existing gateway with tests first. The next implementation target is **durable task/PDA mapping plus idempotent settlement/resume callback delivery**. No physical-wallet action is required for that work.
