@@ -84,6 +84,22 @@ Independent devnet verification run:
 
 **M3 deployment verification is complete.**
 
+Signer-free upgradeable-loader inspection also confirmed:
+
+- ProgramData account: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
+- ProgramData owner: `BPFLoaderUpgradeab1e11111111111111111111111`
+- last deployed slot: `504203568`
+- upgrade authority: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
+- metadata/IDL and deployment-related successful signatures observed at the program address:
+  - `Di2A3dxVkSpoWuZ1aru3FTrNEc6hofQPj6fpqaBPTWn8a6YuNZFVR4RN38v7Yj7739GXgiFq7AALhaBUYT4gtgy`
+  - `KLqP3nkjxsPRthoZmCgLVJFc17QH6K2qKzgDUweGg6S7ySTuJHRo6D6KahNzmQ6wUA8AVkdkjfbv3yYGgzsPtBm`
+  - `4HDyt5VsjoHGyBUgcaxZxKPHnf68H4QH8Xo7vADcefF5CGwmy19Tnh8SZqA4R8pi9jcfB7giJQ44xmi7g6TCcuoj`
+
+Program metadata inspection workflow:
+- run ID: `36203230625`
+- conclusion: **success**
+
+
 ## Documentation state
 
 Evaluator-facing documentation is organized from the repository README.
@@ -113,15 +129,24 @@ No production/mainnet deployment is authorized by this checkpoint.
 - Do **not** change `declare_id` or the program ID just to fix an ordinary verification/build error.
 - Do **not** commit keypairs, seed phrases, wallet secrets, or auth tokens.
 
+## Active M4 operation
+
+A repeatable devnet escrow fixture workflow is now running:
+
+- workflow: `Create devnet escrow fixture`
+- run ID: `36203365279`
+- fixture client uses the controlled deployer as poster
+- worker public key is resolved from the already-proven mobile claim receipt
+- reward asset is devnet WSOL
+- target reward: `1,000,000` atomic units = `0.001 WSOL`
+- deterministic fixture key: `ground-relay-devnet-escrow-v1`
+
+The workflow creates/validates poster and worker WSOL token accounts, creates the deterministic task PDA with `post_task`, funds the program vault, and verifies the resulting on-chain state.
+
 ## Next recommended action
 
-Advance to M4: create a real funded escrow task on devnet.
+Wait for run `36203365279` to finish.
 
-The next implementation block should:
-1. choose/create a clearly labeled devnet-only SPL payment mint for the demo;
-2. create the poster and worker token accounts;
-3. call `post_task` against the deployed Ground Relay program;
-4. fund the task vault with the demo reward;
-5. verify the task PDA and vault state on-chain.
+If it succeeds: record task/vault/token-account addresses and the `post_task` signature, mark M4 complete, and begin M5 mobile -> Anchor integration.
 
-Do not replace the proven mobile memo path until this real funded escrow fixture exists and is independently verified.
+If it fails: repair only the fixture/client step while preserving the deployed program identity, deployment Secrets, and proven mobile memo flow.
