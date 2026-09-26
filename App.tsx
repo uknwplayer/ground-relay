@@ -29,6 +29,10 @@ import {
   getReleasePaymentInstruction,
   getSubmitEvidenceInstruction,
 } from "./src/solana/ground-relay";
+import {
+  didExpectedTransitionLand,
+  type RelayTransitionOperation,
+} from "./src/solana/reconcile";
 
 const cluster = createSolanaDevnet({
   url: "https://api.devnet.solana.com",
@@ -89,11 +93,32 @@ function RelayScreen() {
         evidenceHash: onChain.evidenceHash,
       }));
       setChainError(undefined);
+      return onChain;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to read devnet task";
       setChainError(message);
+      return undefined;
     }
+  }
+
+  async function reconcileExpectedTransition(
+    operation: RelayTransitionOperation,
+    expectedEvidenceHash?: string,
+  ) {
+    if (!walletAddress) return false;
+
+    const onChain = await refreshTask();
+    if (!onChain) return false;
+
+    return didExpectedTransitionLand({
+      operation,
+      status: onChain.status,
+      worker: onChain.worker,
+      walletAddress,
+      evidenceHash: onChain.evidenceHash,
+      expectedEvidenceHash,
+    });
   }
 
   async function waitForConfirmation(signature: string) {
@@ -180,6 +205,8 @@ function RelayScreen() {
       await waitForConfirmation(signature);
       await refreshTask();
     } catch (error) {
+      if (await reconcileExpectedTransition("claim")) return;
+
       const message =
         error instanceof Error ? error.message : "Wallet transaction failed";
       Alert.alert("Claim failed", message);
@@ -208,14 +235,12 @@ function RelayScreen() {
 
   async function submitEvidence() {
     if (!walletAddress || !capturedEvidence || !canSubmit) return;
+    const evidenceHash = capturedEvidence.sha256;
 
     setBusy(true);
     try {
       const nextSignature = await sendTransactions([
-        getSubmitEvidenceInstruction(
-          walletAddress,
-          capturedEvidence.sha256,
-        ),
+        getSubmitEvidenceInstruction(walletAddress, evidenceHash),
       ]);
 
       const signature = nextSignature.toString();
@@ -223,6 +248,8 @@ function RelayScreen() {
       await waitForConfirmation(signature);
       await refreshTask();
     } catch (error) {
+      if (await reconcileExpectedTransition("submitEvidence", evidenceHash)) return;
+
       const message =
         error instanceof Error ? error.message : "Evidence submission failed";
       Alert.alert("Delivery failed", message);
@@ -245,6 +272,8 @@ function RelayScreen() {
       await waitForConfirmation(signature);
       await refreshTask();
     } catch (error) {
+      if (await reconcileExpectedTransition("releasePayment")) return;
+
       const message =
         error instanceof Error ? error.message : "Escrow payout failed";
       Alert.alert("Payout failed", message);
