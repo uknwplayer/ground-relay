@@ -84,7 +84,12 @@ pub mod ground_relay {
         evidence_hash: [u8; 32],
     ) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        validate_submit(task, ctx.accounts.worker.key(), evidence_hash)?;
+        validate_submit_at(
+            task,
+            ctx.accounts.worker.key(),
+            evidence_hash,
+            Clock::get()?.unix_timestamp,
+        )?;
 
         task.evidence_hash = evidence_hash;
         task.status = TaskStatus::Delivered;
@@ -166,10 +171,11 @@ pub mod ground_relay {
 
     pub fn cancel_open_task(ctx: Context<CancelOpenTask>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        validate_cancel(
+        validate_cancel_at(
             task,
             ctx.accounts.poster.key(),
             ctx.accounts.vault.amount,
+            Clock::get()?.unix_timestamp,
         )?;
 
         let poster_key = task.poster;
@@ -234,6 +240,17 @@ fn validate_submit(
     Ok(())
 }
 
+pub fn validate_submit_at(
+    task: &TaskEscrow,
+    worker: Pubkey,
+    evidence_hash: [u8; 32],
+    now: i64,
+) -> Result<()> {
+    validate_submit(task, worker, evidence_hash)?;
+    require!(now < task.expires_at, RelayError::TaskExpired);
+    Ok(())
+}
+
 fn validate_accept(task: &TaskEscrow, poster: Pubkey) -> Result<()> {
     require!(
         task.status == TaskStatus::Delivered,
@@ -264,6 +281,27 @@ fn validate_release(
 
 fn validate_cancel(task: &TaskEscrow, poster: Pubkey, vault_amount: u64) -> Result<()> {
     require!(task.status == TaskStatus::Open, RelayError::InvalidStatus);
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    require!(
+        vault_amount >= task.reward_amount,
+        RelayError::EscrowUnderfunded
+    );
+    Ok(())
+}
+
+pub fn validate_cancel_at(
+    task: &TaskEscrow,
+    poster: Pubkey,
+    vault_amount: u64,
+    now: i64,
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Open || task.status == TaskStatus::Claimed,
+        RelayError::InvalidStatus
+    );
+    if task.status == TaskStatus::Claimed {
+        require!(now >= task.expires_at, RelayError::TaskNotExpired);
+    }
     require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
     require!(
         vault_amount >= task.reward_amount,
@@ -531,6 +569,8 @@ pub enum RelayError {
     InvalidStatus,
     #[msg("Task has expired")]
     TaskExpired,
+    #[msg("Task has not expired yet")]
+    TaskNotExpired,
     #[msg("Signer is not the assigned worker")]
     WrongWorker,
     #[msg("Signer is not the task poster")]
