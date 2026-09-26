@@ -6,36 +6,36 @@
 
 ## 1. Purpose
 
-M7 turns the existing in-memory Agent Gateway prototype into a credible, restart-safe bridge between an autonomous agent and the already-proven Ground Relay escrow lifecycle.
+M7 turns the existing in-memory Agent Gateway prototype into a restart-safe, non-custodial bridge between an autonomous agent and the proven Ground Relay escrow lifecycle.
 
-The target product loop is:
+Target loop:
 
 `agent blocked -> task created -> on-chain task bound -> human completes task -> chain reaches PAID -> gateway delivers resume callback -> agent resumes`
 
-The design deliberately avoids making the Gateway a custodian of wallet secrets or settlement funds. The Gateway observes, persists, correlates, and delivers callbacks; signing remains outside the Gateway.
+The Gateway observes, persists, correlates, synchronizes, and delivers callbacks. It never signs settlement transactions and never stores wallet secrets.
 
 ## 2. Success criteria
 
-M7 is complete when the repository can reproducibly demonstrate all of the following:
+M7 is complete when the repository can reproducibly prove all of the following:
 
-1. An external agent task ID is durably mapped to a Solana task PDA and posting signature.
-2. Gateway state survives process restart without an external database or paid infrastructure.
-3. Gateway status can be reconciled against authoritative Solana devnet task state.
-4. Repeated create, bind, sync, paid, and callback operations are idempotent where the protocol requires idempotency.
-5. A PAID task produces one logical resume event, even if settlement notification or callback delivery is retried.
-6. Callback delivery failures are persisted and can be retried without losing state or duplicating an already acknowledged callback.
-7. A seeded automated demo proves `agent blocked -> human task -> paid -> agent resumed` using the Gateway and a local mock agent receiver.
-8. No private keys, seed phrases, wallet secrets, or deployment secrets are written to Gateway state.
+1. An external task ID is durably mapped to a Solana task PDA and `post_task` signature.
+2. Gateway state survives process restart without an external database or paid service.
+3. Bound task status is reconciled against authoritative Solana devnet state.
+4. Create, bind, sync, settlement notification, and callback retry behavior is idempotent where required.
+5. One accepted PAID settlement creates one logical resume event.
+6. Callback delivery failures are persisted and retried without losing state or resending an already acknowledged event.
+7. A deterministic local demo proves `agent blocked -> human task -> paid -> agent resumed`.
+8. No private key, seed phrase, wallet secret, deployment secret, or custodial signer is introduced into the Gateway.
 
 ## 3. Non-goals
 
-M7 does not attempt to provide production-scale distributed persistence, multi-region queues, mainnet deployment, user authentication, hosted infrastructure, or a general-purpose job marketplace.
+M7 does not provide production-scale distributed persistence, multi-region queues, user authentication, hosted infrastructure, mainnet deployment, or a general-purpose marketplace.
 
-The following are intentionally deferred:
+Explicitly deferred:
 
 - PostgreSQL, Redis, hosted queues, and other external infrastructure.
 - Custodial posting or payout signing inside the Gateway.
-- Multi-process concurrency across several Gateway replicas.
+- Multi-process/multi-replica coordination.
 - Production webhook signing/key management.
 - Final mobile task inbox and receipt/history UX.
 - Account/vault rent reclamation policy.
@@ -43,136 +43,125 @@ The following are intentionally deferred:
 
 ## 4. Existing starting point
 
-The current Gateway already exposes a small HTTP state-machine prototype in `gateway/server.mjs` and has tests in `gateway/server.test.mjs`.
+The repository already contains `gateway/server.mjs`, `gateway/server.test.mjs`, and a Gateway CI workflow.
 
-Existing behavior includes:
+The current prototype supports:
 
 - `POST /v1/tasks`
 - `GET /v1/tasks/{taskId}`
-- claim transition
-- evidence delivery transition
-- verifier acceptance transition
+- claim
+- evidence delivery
+- verifier acceptance
 - paid transition
 - a resume payload returned by the paid route
 
-The current persistence model is an in-memory `Map`, so process restart destroys task state. The existing paid route also constructs a resume payload but does not actually deliver it to the originating agent.
+Its source of truth is an in-memory `Map`, so restart loses state. The paid route constructs a resume object but does not deliver it to the originating agent.
 
 ## 5. Architectural decision
 
 ### 5.1 Non-custodial Gateway
 
-The Gateway MUST NOT own, reconstruct, receive, or persist any poster or worker private key.
+The Gateway MUST NOT own, reconstruct, receive, or persist poster or worker private keys.
 
-On-chain signing continues to be performed by the existing controlled workflow, mobile wallet, or another explicitly authorized signer outside this service.
+Signing remains in the existing controlled workflow, physical wallet, or another explicitly authorized signer outside this service.
 
-The Gateway therefore has four responsibilities:
+The Gateway owns four concerns only:
 
-1. persist protocol metadata;
-2. bind external task identifiers to on-chain identifiers;
-3. synchronize authoritative task state from Solana;
-4. deliver an idempotent resume callback after settlement.
+1. durable protocol metadata;
+2. external task ID ↔ on-chain task binding;
+3. authoritative chain synchronization;
+4. idempotent resume callback delivery.
 
 ### 5.2 Local durable store
 
-The M7 reference implementation uses one local JSON state file under the Gateway runtime directory.
+The M7 reference implementation uses a versioned JSON state file.
 
-Default path:
+Default:
 
 `gateway/data/state.json`
 
-The path MUST be configurable through an environment variable so tests can use isolated temporary files.
+The path is configurable through an environment variable so tests can use isolated temporary directories.
 
-Writes MUST use an atomic replace pattern:
+Writes use atomic replacement:
 
-1. serialize the complete next state;
-2. write it to a temporary file in the same directory;
-3. flush/close the file;
-4. rename the temporary file over the canonical file.
+1. serialize complete next state;
+2. write a temporary file in the same directory;
+3. flush and close it;
+4. rename it over the canonical state file.
 
-A partially written state file must never be considered a successful commit.
+A partially written file is never accepted as a successful commit.
 
-The runtime `gateway/data/` state is ignored by git. Seed/demo fixtures belong in test files or explicit fixture files, not in mutable runtime state.
+`gateway/data/` is runtime state and must be gitignored. Demo fixtures live in tests or explicit immutable fixture files.
 
-### 5.3 Single-process consistency model
+### 5.3 Consistency model
 
-The M7 Gateway is a single-process reference service. Writes are serialized inside the process through the store abstraction.
+M7 is intentionally a **single-process reference service**. Store mutations are serialized inside the process.
 
-Multi-replica locking is explicitly out of scope. This constraint must be documented so the JSON store is not misrepresented as production-distributed storage.
+Multi-replica locking and distributed consensus are out of scope and must not be implied by documentation.
 
 ## 6. Component boundaries
 
-The Gateway should be split so each unit has one clear responsibility.
-
 ### `gateway/store.mjs`
 
-Purpose: durable task/event persistence.
+Purpose: durable state persistence.
 
 Responsibilities:
 
-- initialize an empty store when no state file exists;
+- initialize empty versioned state;
 - load and validate persisted state;
-- expose task lookup and mutation primitives;
-- perform atomic writes;
-- persist callback-attempt metadata;
-- persist idempotency records.
+- expose task/idempotency mutation primitives;
+- serialize writes;
+- perform atomic file replacement;
+- persist callback attempt and retry metadata.
 
-Must not:
-
-- call Solana RPC;
-- send HTTP callbacks;
-- know Anchor account layout.
+Must not call Solana RPC, send callbacks, or decode Anchor accounts.
 
 ### `gateway/chain.mjs`
 
-Purpose: authoritative Ground Relay devnet state adapter.
+Purpose: authoritative Ground Relay task-state adapter.
 
 Responsibilities:
 
-- read the configured task PDA;
-- decode the Ground Relay Anchor task account;
-- normalize chain status to the Gateway status vocabulary;
-- return worker, mint, amount, evidence hash, and status needed for reconciliation.
+- read a configured task PDA;
+- decode the Ground Relay Anchor account;
+- verify program ownership/binding identity;
+- normalize chain status;
+- return worker, mint, reward, evidence hash, and status.
 
-Must not:
+Must not mutate the store or sign transactions.
 
-- mutate Gateway persistence directly;
-- sign transactions;
-- store private keys.
-
-For tests, this component must be replaceable with a fake adapter.
+Tests inject a fake chain adapter; deterministic CI does not depend on devnet.
 
 ### `gateway/callbacks.mjs`
 
-Purpose: resume callback delivery.
+Purpose: resume callback transport.
 
 Responsibilities:
 
-- construct the canonical resume event;
-- send HTTP POST to the task callback URL;
-- attach a stable idempotency key;
-- classify success, retryable failure, and terminal configuration error;
-- return delivery metadata to the service layer.
+- validate callback URL policy;
+- build the canonical resume payload;
+- send HTTP POST;
+- attach stable idempotency metadata;
+- classify response/failure as delivered, retryable, or terminal.
 
-Must not:
-
-- change on-chain state;
-- decide whether a task is actually paid.
+Must not decide whether a task is paid and must not mutate chain state.
 
 ### `gateway/service.mjs`
 
-Purpose: protocol orchestration.
+Purpose: domain orchestration.
 
 Responsibilities:
 
-- create logical tasks;
-- bind tasks to on-chain PDAs;
-- synchronize chain state;
-- enforce state/idempotency rules;
-- decide whether a resume event is eligible;
-- persist callback attempt/result state;
-- retry a pending callback safely.
+- create logical agent tasks;
+- bind tasks to chain identities;
+- synchronize authoritative state;
+- enforce monotonic/terminal task rules;
+- enforce idempotency;
+- create exactly one logical resume event for an accepted settlement;
+- persist callback attempts/results;
+- schedule and execute safe retries.
 
-This is the main domain boundary and must be directly unit-testable without opening an HTTP port.
+This is the primary unit-test boundary.
 
 ### `gateway/server.mjs`
 
@@ -180,141 +169,158 @@ Purpose: HTTP transport only.
 
 Responsibilities:
 
-- parse requests;
-- validate transport-level input;
-- invoke service methods;
-- map domain results/errors to HTTP responses.
+- parse and validate requests;
+- invoke service operations;
+- map domain errors to HTTP responses.
 
-The existing monolithic state logic should move out of this file as part of M7 rather than adding more protocol complexity to it.
+The current state-machine logic moves out of `server.mjs`; M7 must not keep a second in-memory source of truth.
 
 ## 7. Durable data model
 
-The persisted state has a versioned top-level envelope.
-
-Conceptual shape:
+Top-level state is versioned:
 
 ```json
 {
   "schemaVersion": 1,
-  "tasks": {
-    "external-task-id": {
-      "id": "external-task-id",
-      "title": "Verify a storefront sign",
-      "description": "...",
-      "poster": "...",
-      "worker": "...",
-      "rewardAtomic": "1000000",
-      "rewardMint": "So111...",
-      "criteria": [],
-      "callbackUrl": "http://127.0.0.1:9999/resume",
-      "status": "open",
-      "createdAt": "...",
-      "expiresAt": "...",
-      "chain": {
-        "cluster": "devnet",
-        "programId": "6v2p...",
-        "taskPda": "...",
-        "postSignature": "...",
-        "boundAt": "...",
-        "lastSyncedAt": "..."
-      },
-      "evidenceHash": "...",
-      "settlementSignature": "...",
-      "resume": {
-        "eventId": "...",
-        "idempotencyKey": "ground-relay:external-task-id:paid:settlement-signature",
-        "state": "pending|delivered|retryable_failure|terminal_failure",
-        "attempts": 0,
-        "lastAttemptAt": "...",
-        "deliveredAt": "...",
-        "lastStatusCode": 200,
-        "lastError": "..."
-      }
-    }
-  },
+  "tasks": {},
   "idempotency": {}
 }
 ```
 
-Only fields relevant to the task are present. Undefined optional values are omitted rather than serialized as misleading empty strings.
+Each task persists the logical task plus optional chain and resume state:
 
-## 8. External task ID to on-chain binding
+```json
+{
+  "id": "external-task-id",
+  "title": "Verify a storefront sign",
+  "description": "...",
+  "poster": "...",
+  "worker": "...",
+  "rewardAtomic": "1000000",
+  "rewardMint": "So111...",
+  "criteria": [],
+  "callbackUrl": "http://127.0.0.1:9999/resume",
+  "status": "open",
+  "createdAt": "...",
+  "expiresAt": "...",
+  "chain": {
+    "cluster": "devnet",
+    "programId": "6v2p...",
+    "taskPda": "...",
+    "postSignature": "...",
+    "boundAt": "...",
+    "lastSyncedAt": "..."
+  },
+  "evidenceHash": "...",
+  "settlementSignature": "...",
+  "resume": {
+    "eventId": "...",
+    "idempotencyKey": "ground-relay:external-task-id:paid:settlement-signature",
+    "state": "pending",
+    "attempts": 0,
+    "nextAttemptAt": "...",
+    "lastAttemptAt": "...",
+    "deliveredAt": "...",
+    "lastStatusCode": 200,
+    "lastError": "...",
+    "paidAtObserved": "..."
+  }
+}
+```
 
-Creating a logical task and creating its on-chain PDA are separate operations because the Gateway is non-custodial.
+Optional values are omitted when absent; empty strings are not used as fake values.
 
-A task therefore begins as a logical Gateway record and later receives an explicit binding.
+## 8. Task creation and idempotency
 
-### Binding endpoint
+`POST /v1/tasks` becomes durable.
+
+For M7 Agent Gateway tasks, `callbackUrl` is required. This is an intentional contract tightening because the purpose of this service is to resume an originating agent after settlement.
+
+The route optionally accepts an `Idempotency-Key` header.
+
+Rules:
+
+- first valid request stores a canonical request hash and resulting task;
+- same key + same canonical request returns the original task without duplication;
+- same key + different request returns `409 idempotency_conflict`;
+- without a key, the existing explicit task-ID uniqueness rule remains;
+- idempotency records survive restart.
+
+Callback URL validation rejects non-HTTP(S) schemes. Loopback HTTP is allowed in development/test mode so the seeded demo can run locally.
+
+## 9. External task ID to on-chain binding
+
+Logical creation and on-chain posting are separate because the Gateway is non-custodial.
 
 Add:
 
 `PUT /v1/tasks/{taskId}/chain-binding`
 
-Request fields:
+Request:
 
-- `cluster` — must be `devnet` for M7;
+- `cluster` — exactly `devnet` in M7;
 - `programId` — must equal the configured Ground Relay program ID;
 - `taskPda`;
 - `postSignature`.
 
-Binding rules:
+Rules:
 
-- a task can be bound once;
-- submitting the exact same binding again returns success and does not create a duplicate mutation;
-- submitting a different PDA/signature after a binding exists returns `409 binding_conflict`;
-- binding does not trust the supplied status;
-- after binding, the service performs an authoritative chain read before accepting the binding as synchronized.
+- the exact same binding may be submitted repeatedly and returns success;
+- a different PDA/signature after a successful binding returns `409 binding_conflict`;
+- supplied status is never trusted;
+- the Gateway reads the task PDA before committing a new binding;
+- a failed validation does not persist the candidate binding;
+- the chain account must belong to the configured program and match logical poster/mint/reward identity where comparable.
 
-The chain read must confirm at minimum that the task account belongs to the configured Ground Relay program and that the task's poster/mint/reward data are consistent with the logical record where those fields are comparable.
-
-## 9. Chain synchronization
+## 10. Authoritative chain synchronization
 
 Add:
 
 `POST /v1/tasks/{taskId}/sync`
 
-The sync route reads the bound task PDA through the chain adapter and persists the resulting authoritative state.
-
 Rules:
 
-- unbound tasks return `409 task_not_bound`;
-- Gateway state must never move backward because of stale local data;
-- the chain account is authoritative for `worker`, `status`, `evidenceHash`, mint, and reward amount;
-- a mismatch that violates the recorded binding or reward identity is surfaced as `409 chain_mismatch` rather than silently overwritten;
-- terminal chain states `paid` and `cancelled` remain terminal locally;
-- after `paid`, synchronization may make the task eligible for resume delivery.
+- unbound task -> `409 task_not_bound`;
+- chain account is authoritative for worker, status, evidence hash, mint, and reward amount;
+- binding/reward identity mismatch -> `409 chain_mismatch` without overwriting the trusted local binding;
+- RPC failure -> `503 chain_unavailable` without inventing a state transition;
+- `paid` and `cancelled` are terminal;
+- local state never moves backward because of stale cached state;
+- after chain `paid`, the service may create/continue the resume event.
 
-The HTTP response should include the normalized public task and whether a resume callback is pending, delivered, or failed.
+For bound tasks, legacy local claim/delivery/verify routes are not allowed to invent authoritative chain transitions. If retained for unbound protocol demos, they must reject mutation of a bound task with `409 chain_authoritative` unless their action is backed by a matching chain synchronization.
 
-## 10. Settlement notification semantics
+## 11. Settlement notification semantics
 
-The existing `POST /v1/tasks/{taskId}/paid` route is retained for compatibility but changes meaning.
+Retain:
 
-It becomes an explicit settlement-notification/reconciliation trigger, not the authority that unilaterally marks a task paid.
+`POST /v1/tasks/{taskId}/paid`
+
+Its meaning changes from "mark paid" to "notify/reconcile a candidate settlement and attempt agent resume".
 
 Request:
 
-- `signature` — required settlement transaction signature.
+- `signature` — required settlement signature.
 
 Behavior:
 
-1. store/compare the candidate settlement signature;
+1. compare the candidate against an already accepted settlement signature, if any;
 2. synchronize the bound task from chain;
 3. require authoritative chain status `paid`;
-4. require the configured worker/task identity to match;
-5. persist the settlement signature;
-6. construct or reuse the single logical resume event;
-7. attempt callback delivery unless it has already been acknowledged.
+4. require task/worker identity to match the binding;
+5. only then persist the settlement signature;
+6. create or reuse the single logical resume event;
+7. attempt callback delivery unless already acknowledged.
 
-If chain status is not `paid`, return a conflict and do not emit a resume event.
+A candidate signature is not persisted as accepted settlement before successful chain confirmation.
 
-Repeated calls with the same signature are idempotent.
+If chain status is not `paid`, return `409 settlement_not_confirmed` and emit no resume event.
 
-A different settlement signature after one has already been accepted returns `409 settlement_conflict` unless a later design explicitly supports replacement.
+Same signature repeated is idempotent. A different signature after one has been accepted returns `409 settlement_conflict`.
 
-## 11. Resume event and idempotency
+## 12. Resume event identity
 
-The canonical resume payload is:
+Canonical payload:
 
 ```json
 {
@@ -332,45 +338,53 @@ The canonical resume payload is:
 }
 ```
 
-The request includes:
+Stable transport key:
 
 `Idempotency-Key: ground-relay:{taskId}:paid:{settlementSignature}`
 
-The same logical paid event always uses the same idempotency key and stable `eventId`.
+`eventId` is the lowercase hex SHA-256 of that idempotency-key string. `paidAtObserved` is set once when the confirmed settlement first creates the event and is persisted unchanged across retries.
 
-The Gateway defines **exactly-once logical emission, at-least-once transport until acknowledgement**:
+Delivery semantics are explicitly:
 
-- only one resume event record exists for one accepted settlement;
-- network retries may send the HTTP request more than once;
-- the stable idempotency key lets the receiver safely deduplicate retries;
-- after an acknowledged 2xx delivery, the Gateway never automatically sends that event again.
+**exactly one logical resume event, at-least-once HTTP transport until acknowledgement**.
 
-The project documentation must not call this network behavior "exactly once delivery" because HTTP failure ambiguity makes that claim false without cooperation from the receiver.
+The repository must not claim exactly-once HTTP delivery. Network ambiguity makes that impossible without receiver cooperation.
 
-## 12. Callback acknowledgement and retry policy
+## 13. Callback acknowledgement and retry policy
 
-A callback attempt is successful when the receiver returns any HTTP `2xx` response.
+A callback is acknowledged by any HTTP `2xx` response.
 
 Classification:
 
-- `2xx` -> `delivered` terminal callback state;
-- connection error, timeout, `408`, `425`, `429`, or `5xx` -> `retryable_failure`;
-- other `4xx` -> `terminal_failure` for automatic retry purposes.
+- `2xx` -> `delivered`;
+- connection error, timeout, `408`, `425`, `429`, `5xx` -> `retryable_failure`;
+- other `4xx` -> `terminal_failure` for automatic retry.
 
-Retry schedule for the reference implementation:
+Retry schedule after the immediate attempt:
 
-- attempt 1: immediate;
-- retry 1: after 1 second;
-- retry 2: after 2 seconds;
-- retry 3: after 4 seconds;
-- retry 4: after 8 seconds;
-- retry 5: after 16 seconds.
+- +1 second;
+- +2 seconds;
+- +4 seconds;
+- +8 seconds;
+- +16 seconds.
 
-After five retries beyond the initial attempt, the event remains persisted as `retryable_failure` and requires an explicit retry trigger. The service must not spin indefinitely in memory.
+That is one initial attempt plus at most five automatic retries.
 
-For deterministic tests, retry timing must be injectable or bypassable.
+After each retryable failure, the store persists `attempts`, `lastAttemptAt`, failure metadata, and `nextAttemptAt` **before** relying on an in-memory timer.
 
-### Manual retry endpoint
+On process startup, the service scans persisted resume events:
+
+- `delivered` -> never resend;
+- `retryable_failure`/`pending` with future `nextAttemptAt` -> schedule for that time;
+- overdue retryable event -> schedule an immediate retry;
+- exhausted automatic retries -> leave persisted and require explicit retry;
+- `terminal_failure` -> no automatic retry.
+
+This makes restart behavior deterministic and prevents retry state from living only in memory.
+
+Timing is injectable in tests so CI does not wait for real backoff delays.
+
+### Manual retry
 
 Add:
 
@@ -378,34 +392,22 @@ Add:
 
 Rules:
 
-- only a paid task with an existing undelivered resume event is eligible;
-- delivered callbacks return success without resending;
-- non-paid tasks return `409 resume_not_ready`;
-- the same stable event ID and idempotency key are reused.
+- task must be authoritatively `paid`;
+- an undelivered resume event must exist;
+- delivered event returns success without resending;
+- the same event ID and idempotency key are always reused;
+- manual retry resets only the automatic retry budget for that existing event, not its identity.
 
-## 13. Create-task idempotency
+## 14. Error model
 
-`POST /v1/tasks` gains optional support for an `Idempotency-Key` request header.
-
-When provided:
-
-- the first valid request stores a canonical request hash and task result;
-- repeating the same key with the same canonical request returns the original task result without creating a second task;
-- repeating the same key with a different request returns `409 idempotency_conflict`.
-
-If no key is provided, the existing explicit task-ID uniqueness rule remains in effect.
-
-Idempotency records survive restart in the same durable store.
-
-## 14. Error handling
-
-Domain errors use stable machine-readable codes. M7 must define at least:
+Stable machine-readable domain codes include:
 
 - `task_not_found`
 - `task_exists`
 - `invalid_task`
 - `task_not_bound`
 - `binding_conflict`
+- `chain_authoritative`
 - `chain_mismatch`
 - `chain_unavailable`
 - `settlement_not_confirmed`
@@ -415,156 +417,163 @@ Domain errors use stable machine-readable codes. M7 must define at least:
 - `resume_not_ready`
 - `callback_retry_exhausted`
 
-Transport failures to Solana RPC or the callback receiver must not corrupt durable task state. The store should commit each state transition only after the service has enough information to make that transition valid.
+Transport/RPC failures must not corrupt durable state. A state transition is committed only after the service has enough authoritative information to justify it.
+
+`callback_not_configured` exists for migrated/legacy records; newly created M7 agent tasks require a callback URL.
 
 ## 15. Security and trust boundaries
 
 ### Wallet custody
 
-The Gateway stores only public addresses, public transaction signatures, task metadata, callback URLs, and delivery metadata. It never stores signing secrets.
-
-### Callback URL scope
-
-For the M7 hackathon reference implementation, callback delivery is intended for explicitly supplied agent endpoints. The implementation must reject non-HTTP(S) schemes.
-
-To keep the local seeded demo possible, loopback HTTP URLs are allowed in development/test mode.
-
-Production-grade SSRF protections and allowlists are deferred, but the code structure must centralize callback URL validation so stronger policy can be added later.
+Persist only public addresses, public transaction signatures, task metadata, callback URL, hashes, and callback delivery metadata. Never persist signing secrets.
 
 ### Blockchain authority
 
-A client-provided `paid` status is never authoritative. Paid eligibility comes from the chain adapter reading the bound Ground Relay account.
+Client-provided `paid`, worker, mint, reward, or evidence state is not authoritative after binding. Chain synchronization is authoritative.
+
+### Callback URL policy
+
+Reject non-HTTP(S) schemes. Centralize URL validation in the callback component so production SSRF policy can later be strengthened without changing service semantics.
+
+Loopback HTTP is permitted only for development/test configuration.
 
 ### Evidence privacy
 
-The Gateway persists evidence hashes, not raw photos/videos. Existing evidence privacy behavior remains unchanged.
+Persist evidence hashes only. Raw photos/video remain outside the Gateway.
 
-## 16. HTTP API changes
+## 16. HTTP API contract
 
-M7 adds or changes these routes:
+M7 adds or changes:
 
-- `POST /v1/tasks` — durable create; optional idempotency header.
-- `GET /v1/tasks/{taskId}` — reads durable task state.
-- `PUT /v1/tasks/{taskId}/chain-binding` — one-time idempotent external-ID/PDA binding.
-- `POST /v1/tasks/{taskId}/sync` — authoritative Solana reconciliation.
+- `POST /v1/tasks` — durable create; `callbackUrl` required; optional idempotency header.
+- `GET /v1/tasks/{taskId}` — durable task status.
+- `PUT /v1/tasks/{taskId}/chain-binding` — verified one-time/idempotent binding.
+- `POST /v1/tasks/{taskId}/sync` — authoritative chain reconciliation.
 - `POST /v1/tasks/{taskId}/paid` — verified settlement notification plus resume attempt.
-- `POST /v1/tasks/{taskId}/resume/retry` — explicit retry of an undelivered paid-event callback.
+- `POST /v1/tasks/{taskId}/resume/retry` — explicit retry of existing undelivered event.
 
-Existing claim/delivery/verify prototype routes may remain for the local protocol demo during M7, but they must use the new service/store layer if retained. They must not maintain a second independent in-memory source of truth.
+Existing claim/delivery/verify routes may remain for an unbound local protocol demo but use the same service/store and cannot maintain an independent in-memory state machine.
 
-`docs/openapi.yaml` must be updated to reflect the final M7 contract after implementation.
+`docs/openapi.yaml` is updated after implementation to match the final tested contract.
 
 ## 17. Seeded end-to-end demo
 
-M7 includes an automated local seeded demo that proves the agent-resume concept without requiring a new physical-wallet action.
+The M7 deterministic demo requires no new physical-wallet action and no live devnet dependency.
 
-The demo consists of:
+Sequence:
 
-1. a local mock agent receiver starts and records resume events;
-2. the Gateway starts with an isolated temporary state file;
-3. an agent creates a blocked task with a callback URL;
-4. the task is bound to a controlled test/fake chain adapter task PDA;
-5. the fake/fixture chain advances through the states needed for the test;
-6. the Gateway syncs and observes `paid`;
-7. the Gateway posts the resume event;
-8. the mock agent acknowledges it;
-9. the test restarts the Gateway from the same state file and proves the acknowledged callback is not emitted again.
+1. start a mock agent callback receiver;
+2. start Gateway using an isolated temporary state file and fake chain adapter;
+3. create a blocked agent task;
+4. bind it to a fixture PDA/signature;
+5. fake chain advances through relevant states and ultimately `paid`;
+6. Gateway sync observes `paid`;
+7. Gateway creates the stable resume event and POSTs it;
+8. mock agent acknowledges it;
+9. stop Gateway;
+10. restart from the same state file;
+11. prove the delivered event is not emitted again.
 
-A separate integration test may exercise real signer-free devnet reads against the already deployed Ground Relay program, but the core CI suite must not depend on devnet availability.
-
-This distinction keeps normal CI deterministic while preserving a path for public-chain verification.
+A separate optional/manual signer-free workflow may exercise real devnet decoding against the deployed Ground Relay program. Deterministic CI must not depend on network availability.
 
 ## 18. Testing strategy
 
 ### Store tests
 
-- empty initialization;
-- atomic persistence and reload;
-- corrupt/unsupported schema rejection;
-- idempotency record persistence;
-- callback attempt persistence.
+- initialize empty store;
+- atomic persistence/reload;
+- serialized concurrent mutations;
+- corrupt or unsupported schema rejection;
+- idempotency persistence;
+- callback retry metadata persistence.
 
 ### Service tests
 
-- create with and without idempotency key;
-- repeated same-key/same-body create succeeds idempotently;
-- same-key/different-body create conflicts;
-- exact repeated chain binding succeeds;
-- conflicting binding fails;
-- unbound sync fails;
-- chain mismatch fails without corrupting local record;
-- authoritative state synchronization;
-- settlement notification rejected unless chain is `paid`;
-- repeated paid notification with same signature is idempotent;
-- conflicting settlement signature fails;
+- durable create;
+- same idempotency key + same request;
+- same key + different request conflict;
+- exact repeated binding;
+- conflicting binding;
+- failed binding validation is not persisted;
+- unbound sync;
+- chain mismatch without corruption;
+- authoritative state sync;
+- bound local transition rejection;
+- settlement rejected unless chain is paid;
+- same settlement idempotency;
+- settlement conflict;
+- one logical resume event;
 - delivered callback is not resent;
-- retryable callback failure is persisted;
-- explicit retry reuses event ID/idempotency key;
-- restart preserves all relevant state.
+- retryable failure persistence;
+- restart reschedules pending retry;
+- manual retry preserves event identity;
+- restart preserves task/binding/idempotency state.
 
 ### Callback tests
 
-- payload is stable;
-- idempotency header is stable;
-- `2xx` acknowledgement succeeds;
-- retryable network/5xx/429 classification;
-- terminal 4xx classification;
-- retry limit behavior.
+- stable event payload;
+- deterministic event ID;
+- stable idempotency header;
+- 2xx acknowledgement;
+- network/408/425/429/5xx retry classification;
+- other 4xx terminal classification;
+- retry limit.
 
 ### HTTP tests
 
-- route validation and status-code mapping;
-- existing public-task representation remains coherent;
-- new binding/sync/retry routes.
+- validation and domain-to-status mapping;
+- durable GET after restart;
+- binding/sync/paid/retry routes;
+- callback URL requirement and scheme validation.
 
 ### Seeded demo test
 
-One test must cover the full logical path:
+Required path:
 
-`blocked -> created -> bound -> chain paid -> callback -> acknowledged -> restart -> no duplicate callback`
+`blocked -> created -> bound -> chain paid -> callback acknowledged -> restart -> no duplicate callback`
 
 ## 19. CI
 
-The existing Gateway workflow remains the primary deterministic M7 check.
+The existing Gateway workflow remains the deterministic M7 gate and runs all Gateway tests with temporary state and fake chain adapters.
 
-It should run all Gateway unit/integration tests using temporary state files and fake chain adapters.
+An optional/manual signer-free devnet check may validate real account decoding without private keys.
 
-A separate optional/manual signer-free devnet workflow may verify chain decoding against the deployed program without introducing private keys.
+No Gateway CI test requires a worker wallet secret or poster signing key.
 
-No CI job should require a worker wallet secret.
+## 20. Migration from the prototype
 
-## 20. Migration from current prototype
+Implementation order:
 
-Implementation proceeds incrementally:
+1. add failing tests for persistence/idempotency/restart behavior;
+2. add durable store;
+3. move domain logic out of `server.mjs` into `service.mjs`;
+4. add chain adapter interface and fake adapter;
+5. add verified binding and sync;
+6. add callback transport/event identity;
+7. add persisted retry scheduler/startup recovery;
+8. harden `paid` around authoritative chain confirmation;
+9. add seeded end-to-end restart demo;
+10. update OpenAPI, README, roadmap, and checkpoint evidence.
 
-1. create tests around durable/idempotent behavior;
-2. introduce the store abstraction;
-3. move domain transitions from `server.mjs` into the service layer;
-4. introduce the chain adapter interface with a fake implementation for tests;
-5. add chain binding and sync;
-6. introduce callback delivery and retry state;
-7. harden `paid` to require authoritative chain confirmation;
-8. add restart/idempotency seeded demo coverage;
-9. update OpenAPI, README, roadmap, and checkpoint evidence.
-
-Existing endpoints should remain usable during the transition where practical, but correctness takes precedence over preserving undocumented in-memory behavior.
+Correctness takes precedence over undocumented in-memory behavior.
 
 ## 21. Definition of done
 
-M7 is done when all of these are true:
+M7 is done when:
 
-- durable task state survives a Gateway restart;
-- external task ID to task PDA binding is implemented and guarded against conflict;
-- chain synchronization is authoritative and testable through an adapter;
-- settlement notification cannot mark an unpaid chain task as paid;
-- one logical paid event is created per accepted settlement;
-- callback retries reuse a stable event ID and idempotency key;
-- an acknowledged resume callback is not resent after restart;
-- retry failures remain inspectable and explicitly retryable;
-- deterministic CI proves the full seeded agent-resume loop;
-- Gateway code contains no private signing material;
-- API and project documentation match the implemented behavior.
+- durable state survives restart;
+- external task ID ↔ task PDA binding is implemented and conflict-safe;
+- chain synchronization is authoritative;
+- a client cannot mark an unpaid task paid;
+- one logical resume event exists per accepted settlement;
+- callback retries reuse one deterministic event ID/idempotency key;
+- retry state survives restart;
+- acknowledged callbacks are not resent after restart;
+- failed callbacks remain inspectable and manually retryable;
+- deterministic CI proves the full seeded resume loop;
+- Gateway contains no private signing material;
+- API/project documentation matches tested behavior.
 
-At that point the project can move to M8 product hardening with the core thesis demonstrated end to end:
+After this, M8 can focus on product hardening with the core thesis proven end to end:
 
 `agent blocked -> funded task -> human work -> verified settlement -> agent resumed`
