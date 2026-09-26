@@ -174,7 +174,7 @@ export async function fetchGroundRelayTask(
   }
 
   const encoded = response.value.data[0];
-  const data = getBase64Encoder().encode(encoded);
+  const data = new Uint8Array(getBase64Encoder().encode(encoded));
 
   if (data.length < 187) {
     throw new Error(`Ground Relay task account is too small: ${data.length} bytes.`);
