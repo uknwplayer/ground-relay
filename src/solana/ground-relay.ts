@@ -73,6 +73,13 @@ export interface OnChainRelayTask {
   evidenceHash?: string;
 }
 
+export interface PayoutExecutionContext {
+  taskPda: string;
+  rewardMint: string;
+  vaultPda: string;
+  workerTokenAddress: string;
+}
+
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -121,7 +128,18 @@ function pubkeyToString(bytes: Uint8Array): string {
   return getBase58Decoder().decode(bytes);
 }
 
-export function getClaimTaskInstruction(worker: string): Instruction {
+function explicitAddress(value: string | undefined, label: string): Address {
+  if (!value) {
+    throw new Error(`Explicit ${label} is required.`);
+  }
+  return address(value);
+}
+
+export function getClaimTaskInstruction(
+  worker: string,
+  taskPda?: string,
+): Instruction {
+  const selectedTaskAddress = explicitAddress(taskPda, "Ground Relay task PDA");
   return {
     programAddress: GROUND_RELAY_PROGRAM_ADDRESS,
     accounts: [
@@ -130,7 +148,7 @@ export function getClaimTaskInstruction(worker: string): Instruction {
         role: AccountRole.WRITABLE_SIGNER,
       },
       {
-        address: GROUND_RELAY_TASK_ADDRESS,
+        address: selectedTaskAddress,
         role: AccountRole.WRITABLE,
       },
     ],
@@ -140,8 +158,13 @@ export function getClaimTaskInstruction(worker: string): Instruction {
 
 export function getSubmitEvidenceInstruction(
   worker: string,
-  evidenceHash: string,
+  taskPda?: string,
+  evidenceHash?: string,
 ): Instruction {
+  if (!evidenceHash) {
+    throw new Error("Explicit evidence hash is required.");
+  }
+  const selectedTaskAddress = explicitAddress(taskPda, "Ground Relay task PDA");
   return {
     programAddress: GROUND_RELAY_PROGRAM_ADDRESS,
     accounts: [
@@ -150,7 +173,7 @@ export function getSubmitEvidenceInstruction(
         role: AccountRole.READONLY_SIGNER,
       },
       {
-        address: GROUND_RELAY_TASK_ADDRESS,
+        address: selectedTaskAddress,
         role: AccountRole.WRITABLE,
       },
     ],
@@ -161,7 +184,22 @@ export function getSubmitEvidenceInstruction(
   };
 }
 
-export function getReleasePaymentInstruction(worker: string): Instruction {
+export function getReleasePaymentInstruction(
+  worker: string,
+  context?: PayoutExecutionContext,
+): Instruction {
+  if (!context) {
+    throw new Error("Explicit payout execution context is required.");
+  }
+
+  const taskAddress = explicitAddress(context.taskPda, "payout task PDA");
+  const rewardMintAddress = explicitAddress(context.rewardMint, "payout reward mint");
+  const vaultAddress = explicitAddress(context.vaultPda, "payout vault PDA");
+  const workerTokenAddress = explicitAddress(
+    context.workerTokenAddress,
+    "payout worker token account",
+  );
+
   return {
     programAddress: GROUND_RELAY_PROGRAM_ADDRESS,
     accounts: [
@@ -170,19 +208,19 @@ export function getReleasePaymentInstruction(worker: string): Instruction {
         role: AccountRole.READONLY_SIGNER,
       },
       {
-        address: GROUND_RELAY_TASK_ADDRESS,
+        address: taskAddress,
         role: AccountRole.WRITABLE,
       },
       {
-        address: GROUND_RELAY_REWARD_MINT,
+        address: rewardMintAddress,
         role: AccountRole.READONLY,
       },
       {
-        address: GROUND_RELAY_VAULT_ADDRESS,
+        address: vaultAddress,
         role: AccountRole.WRITABLE,
       },
       {
-        address: GROUND_RELAY_WORKER_TOKEN_ADDRESS,
+        address: workerTokenAddress,
         role: AccountRole.WRITABLE,
       },
       {
@@ -201,9 +239,11 @@ export async function fetchGroundRelayTask(
       config: { encoding: "base64"; commitment: "confirmed" },
     ) => { send: () => Promise<unknown> };
   },
+  taskPda?: string,
 ): Promise<OnChainRelayTask> {
+  const selectedTaskAddress = explicitAddress(taskPda, "Ground Relay task PDA");
   const response = (await rpc
-    .getAccountInfo(GROUND_RELAY_TASK_ADDRESS, {
+    .getAccountInfo(selectedTaskAddress, {
       encoding: "base64",
       commitment: "confirmed",
     })
