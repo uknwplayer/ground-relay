@@ -54,15 +54,21 @@ Ground Relay has a working physical-Android prototype with:
 - devnet delivery receipt
 - visible claim/delivery signatures and task progression
 
-The custom Anchor escrow program compiles, passes transition-guard tests, produces reproducible SBF + IDL artifacts, and uses a controlled devnet deployment identity.
+The custom Anchor escrow program is deployed and independently verified executable on Solana devnet.
 
 Controlled devnet program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-The first guarded Anchor deployment reached **Deploy success** and initialized IDL metadata. The workflow later failed only in its post-deploy verification command because that CLI invocation expected a default signer. Independent signer-free verification of the deployed program account is therefore the current M3 task before the project advances to a real funded escrow task.
+A real funded escrow fixture now exists on-chain:
 
-The proven Android claim/delivery path is still memo-backed until direct Anchor integration is completed.
+- task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
+- vault PDA: `FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm`
+- payment asset: devnet WSOL
+- funded reward: `0.001 WSOL`
+- `post_task` signature: `4tBjUWu9cnSZQSHqGkwNZHyJN92uRy1eDAhjQhoUhzZDGuCaKWKPpmhgmA8YHcPBQtYRU5JEseEDywJZ6ZF6pCRi`
+
+The current milestone is **M5 — physical validation of direct mobile Anchor integration**. The Android source now builds real `claim_task`, `submit_evidence`, and worker-signed `release_payment` instructions and hydrates task state directly from devnet. Physical-device validation of that new path is still required before it is marked proven.
 
 ## Devnet prototype receipts
 
