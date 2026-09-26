@@ -178,7 +178,7 @@ Detailed proof: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 ## M8 — Product hardening
 
 - [x] Task inbox backed by the Gateway worker-safe task list, with selected-task PDA reconciliation against Solana
-- [~] Receipt/history screen — claim/delivery/payout signatures and evidence hash are restart-safe session data, but a dedicated history screen is still pending
+- [x] Receipt/history screen — dedicated selected-task history distinguishes Solana-confirmed stages from cached observations and receipt-only restored data
 - [~] Wallet/network recovery states — ambiguous MWA transaction returns are reconciled on-chain; Gateway/Solana outages now degrade to read-only cached state
 - [x] App restart/state restoration with versioned AsyncStorage state and no automatic transaction replay
 - [ ] Deep-link or QR handoff where useful
@@ -194,7 +194,14 @@ First M8 slice proof:
 - Android standalone APK run: `36265450015` — release APK build PASS, artifact-upload step PASS
 - checkpoint: `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
 
-Remaining M8 work includes a dedicated history view, non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, evidence privacy review, rent reclamation policy, and callback retry-semantics tightening.
+Receipt/history hardening:
+
+- RED commit: `2736d00648e62f6c690b84ef48e887f8ff3192fb`
+- model GREEN commit: `954decec6bd3bdab4374ea106483f874192903c8`
+- screen integration commit: `fc69048fbc3e5fcfec5b9da7c66abb4bdc088abf`
+- root CI run: `36269010656` — tests PASS, typecheck PASS
+
+Remaining M8 work includes non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, evidence privacy review, account/payment security review, rent reclamation policy, and repository-wide demo-only cleanup.
 
 **Exit condition:** the demo is robust enough to repeat without manual repair. **Not yet complete.**
 
