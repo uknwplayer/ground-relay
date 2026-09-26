@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "demo": "node demo.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "1.99.0"
