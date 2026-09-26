@@ -33,6 +33,7 @@ pub mod ground_relay {
         task.bump = ctx.bumps.task;
         task.vault_bump = ctx.bumps.vault;
 
+        let vault_before = ctx.accounts.vault.amount;
         let decimals = ctx.accounts.mint.decimals;
         let cpi_accounts = TransferChecked {
             mint: ctx.accounts.mint.to_account_info(),
@@ -45,6 +46,8 @@ pub mod ground_relay {
             reward_amount,
             decimals,
         )?;
+        ctx.accounts.vault.reload()?;
+        validate_exact_credit(vault_before, ctx.accounts.vault.amount, reward_amount)?;
 
         emit!(TaskPosted {
             task: task.key(),
@@ -124,6 +127,7 @@ pub mod ground_relay {
             &bump,
         ];
         let signer = &[signer_seeds];
+        let worker_token_before = ctx.accounts.worker_token.amount;
 
         let cpi_accounts = TransferChecked {
             mint: ctx.accounts.mint.to_account_info(),
@@ -136,6 +140,12 @@ pub mod ground_relay {
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
+        )?;
+        ctx.accounts.worker_token.reload()?;
+        validate_exact_credit(
+            worker_token_before,
+            ctx.accounts.worker_token.amount,
+            task.reward_amount,
         )?;
 
         task.status = TaskStatus::Paid;
@@ -168,6 +178,7 @@ pub mod ground_relay {
             &bump,
         ];
         let signer = &[signer_seeds];
+        let poster_token_before = ctx.accounts.poster_token.amount;
 
         let cpi_accounts = TransferChecked {
             mint: ctx.accounts.mint.to_account_info(),
@@ -180,6 +191,12 @@ pub mod ground_relay {
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
+        )?;
+        ctx.accounts.poster_token.reload()?;
+        validate_exact_credit(
+            poster_token_before,
+            ctx.accounts.poster_token.amount,
+            task.reward_amount,
         )?;
 
         task.status = TaskStatus::Cancelled;
@@ -247,6 +264,15 @@ fn validate_cancel(task: &TaskEscrow, poster: Pubkey, vault_amount: u64) -> Resu
     require!(
         vault_amount >= task.reward_amount,
         RelayError::EscrowUnderfunded
+    );
+    Ok(())
+}
+
+fn validate_exact_credit(before: u64, after: u64, expected: u64) -> Result<()> {
+    require!(after >= before, RelayError::TokenCreditMismatch);
+    require!(
+        after - before == expected,
+        RelayError::TokenCreditMismatch
     );
     Ok(())
 }
@@ -471,6 +497,8 @@ pub enum RelayError {
     InvalidEvidenceHash,
     #[msg("Escrow vault is underfunded")]
     EscrowUnderfunded,
+    #[msg("Token transfer did not credit the exact expected amount")]
+    TokenCreditMismatch,
 }
 
 #[cfg(test)]
