@@ -2,20 +2,21 @@
 
 **Local date:** 2026-09-25  
 **UTC date:** 2026-09-26  
-**Stage:** M7 — Agent Gateway and resume loop  
+**Stage:** M8 — product hardening  
 **Repository:** `uknwplayer/ground-relay`
 
-## Verified product proof
+## Current state
 
-Ground Relay has completed the real physical-Android Anchor escrow path on Solana devnet:
+Ground Relay has now proven both halves of the product thesis:
 
-`funded escrow -> mobile wallet claim -> camera evidence -> SHA-256 -> Anchor delivery -> poster acceptance -> worker payout`
+1. a real physical Android worker can complete and settle a funded Anchor task on Solana devnet;
+2. a non-custodial Agent Gateway can durably correlate that task to an originating agent and deliver an idempotent resume event only after authoritative PAID settlement.
 
-Canonical task lifecycle:
+Combined target loop:
 
-`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
+`agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> verified agent resume callback`
 
-**M5 and M6 are complete.**
+**M5, M6, and M7 are complete.**
 
 ## Canonical devnet identity
 
@@ -29,7 +30,7 @@ Controlled upgrade/deployer/poster address:
 
 Do not regenerate the program identity or replace deployment Secrets.
 
-## Canonical physical payout fixture
+## Canonical physical payout proof
 
 - task ID: `e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662`
 - task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
@@ -59,13 +60,17 @@ Independent post-payout inspection:
 - evidence hash: exact device match
 - invariant checks: PASS
 
+Detailed record:
+
+`docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`
+
 The canonical fixture is historical proof and must not be reset or represented as a fresh OPEN task.
 
-## MWA return hardening
+## Mobile wallet return hardening
 
 Physical validation exposed a Mobile Wallet Adapter edge case where Solflare can successfully submit a transaction and the Android session can still return `java.util.concurrent.CancellationException` to the app.
 
-Ground Relay now reconciles an ambiguous wallet return against authoritative on-chain state before showing a failure.
+Ground Relay reconciles ambiguous wallet returns against authoritative on-chain state before showing failure.
 
 Verification:
 
@@ -73,80 +78,111 @@ Verification:
 - Node tests: `6/6` passed
 - TypeScript typecheck: passed
 
-## M6 adversarial/lifecycle proof
+## M6 settlement/lifecycle hardening
 
-Isolated workflow:
+Isolated devnet workflow:
 
 `M6 devnet settlement guards`
 
-Run ID:
+Run:
 
 `36208008464`
 
-Result: **PASS**
+Verified:
 
-Devnet rejections/proofs completed:
-
-- wrong worker evidence -> `WrongWorker`
-- payout before acceptance -> `InvalidStatus`
-- wrong poster acceptance -> `WrongPoster`
-- second payout after PAID -> `InvalidStatus`
-- worker balance unchanged after rejected second payout
-- vault remained zero after rejected second payout
-- claim of PAID task -> `InvalidStatus`
-- expired claim -> `TaskExpired`
-- `cancel_open_task` refunded escrow exactly
-- second cancellation -> `InvalidStatus`
-- claim of CANCELLED task -> `InvalidStatus`
-
-Cancellation signature:
-
-`3YfiDojJxsmCajYxvcc3HZP2MZ3RVm2vf14VLhtLjw8n4JrzHJ4jb7yqNbzRpgXNqQaKmxUygdovkpwR8hCtE9ZC`
-
-Double-pay guard fixture payout signature:
-
-`5Mg25EWwrSiPhJdibUCThZcKNeRDGUXBzr2H8j6wj4TGqozTpZN5WX1z18yth7CRZGpnXbkr4U7ZhXtLJCrnucnQ`
+- wrong worker evidence -> rejected
+- wrong poster acceptance -> rejected
+- payout before acceptance -> rejected
+- second payout after PAID -> rejected with balances unchanged
+- claim of PAID task -> rejected
+- expired claim -> rejected
+- `cancel_open_task` -> exact escrow refund
+- second cancellation -> rejected
+- claim of CANCELLED task -> rejected
 
 Detailed record:
 
 `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
 
-## Expiry policy
+Expiry/reopen policy:
 
-The demonstrated policy is now explicit:
+1. expired OPEN task is unclaimable;
+2. poster cancels/refunds it;
+3. reopening creates a new task ID instead of reviving terminal history.
 
-1. an expired OPEN task becomes unclaimable;
-2. the poster cancels it and recovers escrow;
-3. a reopen is represented by a new task ID rather than reviving a historical task.
+## M7 Agent Gateway proof
 
-This keeps cancelled/terminal task history immutable.
+M7 replaced the in-memory Gateway prototype with a restart-safe, non-custodial reference service.
 
-## Remaining hardening intentionally deferred
+Implemented and tested:
 
-`WrongMint` and `EscrowUnderfunded` remain validator defense-in-depth checks and have unit coverage. Correctly initialized legacy-token task/vault state structurally prevents those conditions through the public instruction set.
+- versioned atomic JSON state persistence;
+- durable external task ID <-> Solana task PDA/post signature binding;
+- Ground Relay Anchor account decoder and owner/layout validation;
+- authoritative chain synchronization for bound tasks;
+- monotonic/terminal state protection against stale reads;
+- duplicate task-PDA binding rejection;
+- idempotent task creation;
+- required callback URL for new M7 tasks;
+- deterministic resume event ID and idempotency key;
+- verified PAID settlement notification rather than client-authoritative payment state;
+- actual HTTP agent resume delivery;
+- retry classification and persisted +1/+2/+4/+8/+16 second backoff;
+- restart recovery for pending retries;
+- manual retry with stable event identity;
+- bound tasks reject legacy local mutations with `chain_authoritative`;
+- seeded restart demo proving acknowledged callbacks are not duplicated.
 
-Task/vault rent reclamation is moved to M8 because it requires a deliberate account-closure/API policy and is not necessary for proving settlement correctness.
+Deterministic proof workflow:
 
-## M7 starting state
+`Gateway check`
 
-A prototype Agent Gateway already exists in `gateway/server.mjs` with:
+Run:
 
-- `POST /v1/tasks`
-- task status retrieval
-- claim transition
-- evidence delivery transition
-- verifier acceptance transition
-- paid transition
-- a resume payload returned after payment
+`36211748985`
 
-The current gateway is still primarily an in-memory protocol prototype. M7 must turn it into a credible agent-resume loop by adding:
+Result:
 
-- durable external task ID <-> on-chain task PDA mapping
-- idempotency
-- authoritative chain synchronization/status
-- actual resume callback delivery
-- retry/failure semantics
-- a seeded end-to-end agent-blocked -> human -> paid -> agent-resumed proof
+- `npm ci`: PASS
+- Gateway tests: **48/48 PASS**
+- seeded demo: **PASS**
+- callback count before restart: `1`
+- callback count after restart: `1`
+- duplicate callback after restart: `false`
+
+Seeded event ID:
+
+`4deaf25af94d670a6d27317c6e128e5f8eff0779aabbe41fa22df19a1e3595a5`
+
+Seeded idempotency key:
+
+`ground-relay:seeded-agent-blocker:paid:seeded-settlement-signature`
+
+Detailed record:
+
+`docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`
+
+## M7 trust model
+
+The Gateway is non-custodial.
+
+It does not persist or require poster/worker private keys for its deterministic CI/demo. It stores only public/task protocol metadata, signatures, hashes, task/PDA binding data, callback URLs, and callback delivery metadata.
+
+After binding, the Solana account is authoritative for worker/status/evidence/mint/reward identity. `POST /paid` is a reconciliation trigger; it cannot make an unpaid chain task paid.
+
+Resume semantics are:
+
+**one logical event, at-least-once HTTP transport until acknowledgement**.
+
+A successful `2xx` acknowledgement is persisted and prevents automatic resend after restart.
+
+## Current implementation branch
+
+M7 was developed in the isolated branch:
+
+`m7-agent-gateway-resume`
+
+`main` was intentionally left untouched during implementation. Integrating that branch is a deliberate final action after whole-branch review.
 
 ## Key documents
 
@@ -155,8 +191,11 @@ The current gateway is still primarily an in-memory protocol prototype. M7 must 
 - `docs/architecture.md`
 - `docs/escrow-protocol.md`
 - `docs/openapi.yaml`
+- `docs/superpowers/specs/2026-09-25-agent-gateway-resume-design.md`
+- `docs/superpowers/plans/2026-09-25-agent-gateway-resume.md`
 - `docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`
 - `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
+- `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`
 - `docs/checkpoints/CURRENT.md`
 
 ## Do not repeat
@@ -167,8 +206,10 @@ The current gateway is still primarily an in-memory protocol prototype. M7 must 
 - Do **not** reset/recreate the canonical paid fixture as if it were the same proof.
 - Do **not** use old memo receipts as the primary Anchor proof.
 - Do **not** commit keys, seed phrases, wallet secrets, or auth tokens.
+- Do **not** make the Agent Gateway a custodial signer merely to simplify M8.
+- Do **not** describe HTTP callback delivery as exactly-once transport.
 - Do **not** authorize mainnet deployment from this checkpoint.
 
 ## Next recommended action
 
-Continue M7 autonomously by hardening the existing gateway with tests first. The next implementation target is **durable task/PDA mapping plus idempotent settlement/resume callback delivery**. No physical-wallet action is required for that work.
+Finish the M7 whole-branch review and integrate the isolated branch only after verification. Then continue M8 with product hardening, prioritizing real task inbox/history + app restart/state restoration, followed by callback/SSRF, evidence privacy, payment/account-closure security review, and release repeatability.

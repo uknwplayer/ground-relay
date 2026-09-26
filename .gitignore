@@ -11,6 +11,8 @@ android/app/build/
 !.env.example
 .DS_Store
 
+gateway/data/
+
 # Solana / Anchor build output and signing material
 target/
 programs/*/target/

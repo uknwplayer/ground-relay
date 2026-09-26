@@ -2,13 +2,21 @@ name: Gateway check
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "m7-*"]
     paths:
       - "gateway/**"
+      - "README.md"
+      - "docs/openapi.yaml"
+      - "docs/roadmap.md"
+      - "docs/checkpoints/**"
       - ".github/workflows/gateway-check.yml"
   pull_request:
     paths:
       - "gateway/**"
+      - "README.md"
+      - "docs/openapi.yaml"
+      - "docs/roadmap.md"
+      - "docs/checkpoints/**"
       - ".github/workflows/gateway-check.yml"
 
 concurrency:
@@ -23,5 +31,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
+        working-directory: gateway
       - run: npm test
+        working-directory: gateway
+      - run: npm run demo
         working-directory: gateway
