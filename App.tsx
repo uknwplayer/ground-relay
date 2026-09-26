@@ -90,6 +90,46 @@ function RelayScreen() {
     }
   }
 
+  async function waitForConfirmation(signature: string) {
+    const rpc = client.rpc as unknown as {
+      getSignatureStatuses: (
+        signatures: string[],
+      ) => {
+        send: () => Promise<{
+          value: Array<
+            | {
+                err: unknown;
+                confirmationStatus?: "processed" | "confirmed" | "finalized";
+              }
+            | null
+          >;
+        }>;
+      };
+    };
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const response = await rpc.getSignatureStatuses([signature]).send();
+      const status = response.value[0];
+
+      if (status?.err) {
+        throw new Error("Solana confirmed the transaction with an error.");
+      }
+
+      if (
+        status?.confirmationStatus === "confirmed" ||
+        status?.confirmationStatus === "finalized"
+      ) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+
+    throw new Error(
+      "Transaction was submitted, but devnet confirmation timed out. Refresh the on-chain task before retrying.",
+    );
+  }
+
   useEffect(() => {
     void refreshTask();
   }, [client]);
@@ -129,7 +169,9 @@ function RelayScreen() {
         getClaimTaskInstruction(walletAddress),
       ]);
 
-      setClaimSignature(nextSignature.toString());
+      const signature = nextSignature.toString();
+      setClaimSignature(signature);
+      await waitForConfirmation(signature);
       await refreshTask();
     } catch (error) {
       const message =
@@ -170,7 +212,9 @@ function RelayScreen() {
         ),
       ]);
 
-      setDeliverySignature(nextSignature.toString());
+      const signature = nextSignature.toString();
+      setDeliverySignature(signature);
+      await waitForConfirmation(signature);
       await refreshTask();
     } catch (error) {
       const message =
