@@ -1,14 +1,14 @@
 import type { RelayTask } from "../protocol/types";
 
 export const demoTask: RelayTask = {
-  id: "clock-in-demo-001",
+  id: "e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662",
   title: "Verify a storefront sign",
   description:
     "An autonomous agent needs a human to confirm the sign is present and readable from the public sidewalk.",
-  poster: "agent:ground-relay-demo",
+  poster: "6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ",
   status: "open",
   rewardAtomic: "1000000",
-  rewardMint: "USDC-devnet-demo",
+  rewardMint: "So11111111111111111111111111111111111111112",
   createdAt: new Date(0).toISOString(),
   criteria: [
     {
