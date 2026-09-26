@@ -1,0 +1,176 @@
+{
+  "address": "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap",
+  "metadata": {
+    "name": "ground_relay",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Solana escrow and task state for Ground Relay"
+  },
+  "instructions": [
+    {
+      "name": "accept_task",
+      "discriminator": [222, 196, 79, 165, 120, 30, 38, 120],
+      "accounts": [
+        {"name": "poster", "signer": true},
+        {"name": "task", "writable": true}
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_open_task",
+      "discriminator": [235, 176, 186, 97, 10, 106, 63, 15],
+      "accounts": [
+        {"name": "poster", "writable": true, "signer": true},
+        {"name": "task", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [116, 97, 115, 107]},
+          {"kind": "account", "path": "task.poster", "account": "TaskEscrow"},
+          {"kind": "account", "path": "task.task_id", "account": "TaskEscrow"}
+        ]}},
+        {"name": "mint"},
+        {"name": "vault", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [118, 97, 117, 108, 116]},
+          {"kind": "account", "path": "task"}
+        ]}},
+        {"name": "poster_token", "writable": true},
+        {"name": "token_program"}
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_task",
+      "discriminator": [49, 222, 219, 238, 155, 68, 221, 136],
+      "accounts": [
+        {"name": "worker", "writable": true, "signer": true},
+        {"name": "task", "writable": true}
+      ],
+      "args": []
+    },
+    {
+      "name": "post_task",
+      "discriminator": [186, 136, 157, 9, 235, 251, 62, 142],
+      "accounts": [
+        {"name": "poster", "writable": true, "signer": true},
+        {"name": "task", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [116, 97, 115, 107]},
+          {"kind": "account", "path": "poster"},
+          {"kind": "arg", "path": "task_id"}
+        ]}},
+        {"name": "mint"},
+        {"name": "poster_token", "writable": true},
+        {"name": "vault", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [118, 97, 117, 108, 116]},
+          {"kind": "account", "path": "task"}
+        ]}},
+        {"name": "token_program"},
+        {"name": "system_program", "address": "11111111111111111111111111111111"}
+      ],
+      "args": [
+        {"name": "task_id", "type": {"array": ["u8", 32]}},
+        {"name": "reward_amount", "type": "u64"},
+        {"name": "expires_at", "type": "i64"}
+      ]
+    },
+    {
+      "name": "release_payment",
+      "discriminator": [24, 34, 191, 86, 145, 160, 183, 233],
+      "accounts": [
+        {"name": "worker", "signer": true},
+        {"name": "task", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [116, 97, 115, 107]},
+          {"kind": "account", "path": "task.poster", "account": "TaskEscrow"},
+          {"kind": "account", "path": "task.task_id", "account": "TaskEscrow"}
+        ]}},
+        {"name": "mint"},
+        {"name": "vault", "writable": true, "pda": {"seeds": [
+          {"kind": "const", "value": [118, 97, 117, 108, 116]},
+          {"kind": "account", "path": "task"}
+        ]}},
+        {"name": "worker_token", "writable": true},
+        {"name": "token_program"}
+      ],
+      "args": []
+    },
+    {
+      "name": "submit_evidence",
+      "discriminator": [12, 169, 228, 194, 229, 31, 44, 39],
+      "accounts": [
+        {"name": "worker", "signer": true},
+        {"name": "task", "writable": true}
+      ],
+      "args": [{"name": "evidence_hash", "type": {"array": ["u8", 32]}}]
+    }
+  ],
+  "accounts": [
+    {"name": "TaskEscrow", "discriminator": [209, 72, 197, 54, 17, 55, 3, 187]}
+  ],
+  "events": [
+    {"name": "EvidenceSubmitted", "discriminator": [13, 123, 197, 44, 231, 117, 168, 53]},
+    {"name": "TaskAccepted", "discriminator": [125, 164, 36, 103, 193, 116, 66, 27]},
+    {"name": "TaskCancelled", "discriminator": [158, 101, 220, 187, 16, 141, 141, 64]},
+    {"name": "TaskClaimed", "discriminator": [208, 90, 243, 116, 80, 15, 228, 202]},
+    {"name": "TaskPaid", "discriminator": [72, 20, 82, 55, 216, 110, 104, 174]},
+    {"name": "TaskPosted", "discriminator": [152, 102, 197, 165, 115, 29, 250, 3]}
+  ],
+  "errors": [
+    {"code": 6000, "name": "ZeroReward", "msg": "Reward amount must be greater than zero"},
+    {"code": 6001, "name": "InvalidExpiry", "msg": "Expiry must be in the future"},
+    {"code": 6002, "name": "InvalidStatus", "msg": "Task is not in the required state"},
+    {"code": 6003, "name": "TaskExpired", "msg": "Task has expired"},
+    {"code": 6004, "name": "WrongWorker", "msg": "Signer is not the assigned worker"},
+    {"code": 6005, "name": "WrongPoster", "msg": "Signer is not the task poster"},
+    {"code": 6006, "name": "WrongMint", "msg": "Token mint does not match the task"},
+    {"code": 6007, "name": "InvalidEvidenceHash", "msg": "Evidence hash cannot be empty"},
+    {"code": 6008, "name": "EscrowUnderfunded", "msg": "Escrow vault is underfunded"}
+  ],
+  "types": [
+    {"name": "EvidenceSubmitted", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"},
+      {"name": "worker", "type": "pubkey"},
+      {"name": "evidence_hash", "type": {"array": ["u8", 32]}}
+    ]}},
+    {"name": "TaskAccepted", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"},
+      {"name": "evidence_hash", "type": {"array": ["u8", 32]}}
+    ]}},
+    {"name": "TaskCancelled", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"}
+    ]}},
+    {"name": "TaskClaimed", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"},
+      {"name": "worker", "type": "pubkey"}
+    ]}},
+    {"name": "TaskEscrow", "type": {"kind": "struct", "fields": [
+      {"name": "task_id", "type": {"array": ["u8", 32]}},
+      {"name": "poster", "type": "pubkey"},
+      {"name": "worker", "type": "pubkey"},
+      {"name": "mint", "type": "pubkey"},
+      {"name": "reward_amount", "type": "u64"},
+      {"name": "expires_at", "type": "i64"},
+      {"name": "status", "type": {"defined": {"name": "TaskStatus"}}},
+      {"name": "evidence_hash", "type": {"array": ["u8", 32]}},
+      {"name": "bump", "type": "u8"},
+      {"name": "vault_bump", "type": "u8"}
+    ]}},
+    {"name": "TaskPaid", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"},
+      {"name": "worker", "type": "pubkey"},
+      {"name": "amount", "type": "u64"},
+      {"name": "mint", "type": "pubkey"}
+    ]}},
+    {"name": "TaskPosted", "type": {"kind": "struct", "fields": [
+      {"name": "task", "type": "pubkey"},
+      {"name": "poster", "type": "pubkey"},
+      {"name": "mint", "type": "pubkey"},
+      {"name": "reward_amount", "type": "u64"},
+      {"name": "expires_at", "type": "i64"}
+    ]}},
+    {"name": "TaskStatus", "type": {"kind": "enum", "variants": [
+      {"name": "Open"},
+      {"name": "Claimed"},
+      {"name": "Delivered"},
+      {"name": "Accepted"},
+      {"name": "Paid"},
+      {"name": "Cancelled"}
+    ]}}
+  ]
+}
