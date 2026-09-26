@@ -80,30 +80,51 @@ Controlled devnet program ID:
 
 **Exit condition:** an OPEN task exists on-chain with an actually funded escrow vault.
 
+The canonical M4 fixture has since completed the full lifecycle and is now legitimately `PAID`; it remains the end-to-end proof and should not be reset or impersonated as a fresh OPEN task.
+
 ## M5 — Mobile app -> Anchor integration
 
 - [x] Commit the deployed IDL and guard the Kit client against IDL drift
-- [~] Read the real task account from devnet on Android (implemented; physical validation pending)
-- [~] Replace the memo-backed mobile claim with real `claim_task` (implemented; physical validation pending)
-- [~] Keep camera evidence off-chain and submit its SHA-256 through `submit_evidence` (implemented; physical validation pending)
-- [~] Hydrate app status from the on-chain task instead of local-only state (implemented; physical validation pending)
-- [~] Display real Anchor transaction receipts (implemented; physical validation pending)
-- [~] Add network/program mismatch guards (devnet/program fixed and IDL consistency checked; device validation pending)
+- [x] Read the real task account from devnet on a physical Android device
+- [x] Replace the memo-backed mobile claim with real `claim_task`
+- [x] Keep camera evidence off-chain and submit its SHA-256 through `submit_evidence`
+- [x] Hydrate app status from the on-chain task instead of local-only state
+- [x] Display real Anchor transaction/state receipts
+- [x] Add network/program mismatch guards
+- [x] Reconcile ambiguous Mobile Wallet Adapter returns against authoritative on-chain state
+- [x] Add regression tests for claim/delivery/payout reconciliation
 
-**Exit condition:** the physical Android app performs CLAIMED and DELIVERED transitions against the Ground Relay program.
+Physical proof completed:
+
+`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
+
+Payout transaction:
+
+`4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
+
+Independent post-payout inspection run: `36207197941`.
+
+**Exit condition:** the physical Android app performs CLAIMED and DELIVERED transitions against the Ground Relay program. **Complete.**
 
 ## M6 — Acceptance, payout, and failure paths
 
-- [ ] Poster/verifier accepts valid delivery with `accept_task`
-- [ ] `release_payment` transfers the escrowed SPL reward to the worker
-- [ ] Verify worker token balance changed by the expected amount
+- [x] Poster/verifier accepts valid delivery with `accept_task`
+- [x] `release_payment` transfers the escrowed SPL reward to the worker
+- [x] Verify worker token balance changed by the expected amount
 - [ ] Verify the vault cannot pay twice
 - [ ] Test wrong-worker, wrong-poster, wrong-mint, underfunded, expired, and invalid-state failures
 - [ ] Implement/test open-task cancellation and refund
 - [ ] Define and implement expiry/reopen behavior
 - [ ] Close/reclaim vault/task rent where appropriate
 
-**Exit condition:** one real devnet task completes OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID with an observable token transfer.
+Verified successful settlement evidence:
+
+- acceptance signature: `4QVs7r2xBgSNzZHm8z3N5jbJZKVNCAT4cXEw9pTCqVRv79DchyYDfjnUXUsDJCVWuWFZCZ6WJYE1zTBrDoHSF8Hd`
+- payout signature: `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
+- final vault amount: `0`
+- final worker token amount: `1,000,000` atomic WSOL
+
+**Exit condition:** one real devnet task completes OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID with an observable token transfer, plus the critical settlement failure/lifecycle paths are demonstrated. Successful settlement is complete; adversarial/lifecycle hardening remains.
 
 ## M7 — Agent Gateway and resume loop
 
@@ -121,12 +142,12 @@ Controlled devnet program ID:
 
 - [ ] Task inbox backed by real task data
 - [ ] Receipt/history screen
-- [ ] Wallet/network recovery states
+- [~] Wallet/network recovery states — on-chain reconciliation for ambiguous MWA transaction returns is implemented and regression-tested
 - [ ] App restart/state restoration
 - [ ] Deep-link or QR handoff where useful
 - [ ] Evidence privacy review
 - [ ] Security review of account constraints, authorities, replay/idempotency, and payment invariants
-- [ ] CI coverage for mobile typecheck, Anchor tests, SBF build, and release APK
+- [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK workflows remain separate
 - [ ] Remove or clearly label all demo-only values and memo prototype behavior
 
 **Exit condition:** the demo is robust enough to repeat without manual repair.
