@@ -311,7 +311,12 @@ export function createRelayService({
     if (!signature) throw domainError("settlement_not_confirmed");
     let task = await getTask(taskId);
     if (task.settlementSignature && task.settlementSignature !== signature) throw domainError("settlement_conflict");
-    if (task.settlementSignature === signature && task.resume) return task;
+    if (task.settlementSignature === signature && task.resume) {
+      if (task.resume.state === "delivered") return task;
+      scheduledResumes.get(taskId)?.();
+      scheduledResumes.delete(taskId);
+      return attemptResume(taskId);
+    }
     if (!task.chain) throw domainError("settlement_not_confirmed");
 
     let onChain;
