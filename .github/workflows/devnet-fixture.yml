@@ -4,7 +4,8 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "scripts/devnet-fixture/**"
+      - "scripts/devnet-fixture/package.json"
+      - "scripts/devnet-fixture/create-fixture.cjs"
       - ".github/workflows/devnet-fixture.yml"
   workflow_dispatch:
 
