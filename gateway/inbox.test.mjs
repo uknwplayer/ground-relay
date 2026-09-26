@@ -85,6 +85,15 @@ test("service listTasks returns a worker-safe deterministic projection", async (
   assert.equal("boundAt" in listed[0].chain, false);
 });
 
+test("service listTasks breaks createdAt ties by task id", async () => {
+  const store = await makeStore("ground-relay-inbox-tie-");
+  const clock = { now: () => Date.parse("2026-09-26T12:00:00.000Z") };
+  const service = createRelayService(deps(store, clock));
+  await service.createTask(task("zeta"));
+  await service.createTask(task("alpha"));
+  assert.deepEqual((await service.listTasks()).map((item) => item.id), ["alpha", "zeta"]);
+});
+
 test("GET /v1/tasks returns the worker task collection", async () => {
   let calls = 0;
   const service = { listTasks: async () => { calls += 1; return [{ id: "task-a", title: "Task A", status: "open" }]; } };

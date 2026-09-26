@@ -10,6 +10,16 @@ servers:
   - url: https://relay.example/v1
 paths:
   /tasks:
+    get:
+      summary: List worker-visible tasks
+      operationId: listTasks
+      responses:
+        "200":
+          description: Worker-safe task summaries ordered by createdAt descending and task ID ascending for ties.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerTaskListResponse"
     post:
       summary: Create a durable human escalation task
       operationId: createTask
@@ -365,6 +375,66 @@ components:
         lastSyncedAt:
           type: string
           format: date-time
+    WorkerChainBinding:
+      type: object
+      required: [cluster, programId, taskPda, postSignature, lastSyncedAt]
+      properties:
+        cluster:
+          const: devnet
+        programId:
+          type: string
+        taskPda:
+          type: string
+        postSignature:
+          type: string
+        lastSyncedAt:
+          type: string
+          format: date-time
+    WorkerTaskSummary:
+      type: object
+      required: [id, title, description, poster, status, rewardAtomic, rewardMint, createdAt, criteria]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        poster:
+          type: string
+        worker:
+          type: string
+        status:
+          enum: [open, claimed, delivered, accepted, paid, cancelled]
+        rewardAtomic:
+          type: string
+        rewardMint:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/AcceptanceCriterion"
+        chain:
+          $ref: "#/components/schemas/WorkerChainBinding"
+        evidenceHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        settlementSignature:
+          type: string
+    WorkerTaskListResponse:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkerTaskSummary"
     ResumeState:
       type: object
       required: [eventId, idempotencyKey, state, attempts, paidAtObserved]
