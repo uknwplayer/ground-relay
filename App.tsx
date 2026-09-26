@@ -17,16 +17,31 @@ import {
   useMobileWallet,
 } from "@wallet-ui/react-native-kit";
 
-import { demoTask } from "./src/demo/task";
 import {
   capturePhotoEvidence,
   type CapturedPhotoEvidence,
 } from "./src/evidence/capture";
-import type { RelayTask } from "./src/protocol/types";
+import { fetchTaskInbox } from "./src/inbox/api";
+import { resolveGatewayBaseUrl } from "./src/inbox/config";
+import {
+  buildRestartPlan,
+  mergeFreshInbox,
+  selectTaskSession,
+} from "./src/inbox/flow";
+import {
+  deriveActionEligibility,
+  reconcileSelectedTask,
+  type ReconciledTaskState,
+} from "./src/inbox/reconcile";
+import { loadMobileState, saveMobileState } from "./src/inbox/storage";
+import type {
+  InboxTaskSummary,
+  MobileStateV1,
+  SelectedTaskSession,
+} from "./src/inbox/types";
 import {
   fetchGroundRelayTask,
   getClaimTaskInstruction,
-  getReleasePaymentInstruction,
   getSubmitEvidenceInstruction,
 } from "./src/solana/ground-relay";
 import {
@@ -44,126 +59,224 @@ const identity = {
   icon: "favicon.png",
 };
 
-function shortAddress(address: string): string {
-  if (address.length < 12) return address;
-  return `${address.slice(0, 6)}…${address.slice(-6)}`;
+function shortAddress(value: string): string {
+  if (value.length < 14) return value;
+  return `${value.slice(0, 6)}…${value.slice(-6)}`;
 }
 
 function shortHash(value: string): string {
-  if (value.length < 20) return value;
+  if (value.length < 22) return value;
   return `${value.slice(0, 10)}…${value.slice(-10)}`;
+}
+
+function formatReward(task: InboxTaskSummary): string {
+  return `${task.rewardAtomic} atomic · ${shortAddress(task.rewardMint)}`;
+}
+
+function mobileState(
+  inboxSnapshot: InboxTaskSummary[],
+  selectedTask?: SelectedTaskSession,
+): MobileStateV1 {
+  return {
+    schemaVersion: 1,
+    savedAt: new Date().toISOString(),
+    inboxSnapshot,
+    selectedTask,
+  };
 }
 
 function RelayScreen() {
   const { account, connect, disconnect, client, sendTransactions } = useMobileWallet();
-  const [task, setTask] = useState<RelayTask>(demoTask);
-  const [claimSignature, setClaimSignature] = useState<string>();
-  const [deliverySignature, setDeliverySignature] = useState<string>();
-  const [payoutSignature, setPayoutSignature] = useState<string>();
+  const [inbox, setInbox] = useState<InboxTaskSummary[]>([]);
+  const [session, setSession] = useState<SelectedTaskSession>();
+  const [authoritative, setAuthoritative] = useState<ReconciledTaskState>();
   const [capturedEvidence, setCapturedEvidence] =
     useState<CapturedPhotoEvidence>();
-  const [busy, setBusy] = useState(false);
+  const [inboxSource, setInboxSource] =
+    useState<"loading" | "cached" | "fresh" | "unavailable">("loading");
+  const [gatewayError, setGatewayError] = useState<string>();
   const [chainError, setChainError] = useState<string>();
+  const [busy, setBusy] = useState(false);
 
+  const gatewayBaseUrl = useMemo(() => resolveGatewayBaseUrl(), []);
   const walletAddress = account?.address?.toString();
-  const canClaim = task.status === "open" && Boolean(walletAddress);
-  const canCapture = task.status === "claimed" && Boolean(walletAddress);
-  const canSubmit =
-    task.status === "claimed" && Boolean(walletAddress) && Boolean(capturedEvidence);
-  const canRelease =
-    task.status === "accepted" &&
-    Boolean(walletAddress) &&
-    task.worker === walletAddress;
-
-  const criteriaDone = useMemo(
-    () => task.criteria.filter((criterion) => criterion.required).length,
-    [task.criteria],
+  const selectedTask = useMemo(
+    () => inbox.find((task) => task.id === session?.taskId),
+    [inbox, session?.taskId],
   );
 
-  async function refreshTask() {
+  const eligibility = useMemo(
+    () =>
+      selectedTask
+        ? deriveActionEligibility({
+            summary: selectedTask,
+            authoritative,
+            walletAddress,
+            hasCapturedEvidence: Boolean(capturedEvidence),
+            payoutContext: undefined,
+          })
+        : {
+            canClaim: false,
+            canCapture: false,
+            canSubmit: false,
+            canRelease: false,
+          },
+    [selectedTask, authoritative, walletAddress, capturedEvidence],
+  );
+
+  const displayStatus = authoritative?.status ?? selectedTask?.status;
+  const displayWorker = authoritative?.worker ?? selectedTask?.worker;
+
+  async function persist(
+    nextInbox: InboxTaskSummary[] = inbox,
+    nextSession: SelectedTaskSession | undefined = session,
+  ) {
     try {
-      const onChain = await fetchGroundRelayTask(client.rpc as never);
-      setTask((current) => ({
-        ...current,
-        poster: onChain.poster,
-        worker: onChain.worker,
-        status: onChain.status,
-        rewardAtomic: onChain.rewardAtomic,
-        rewardMint: onChain.mint,
-        evidenceHash: onChain.evidenceHash,
-      }));
+      await saveMobileState(mobileState(nextInbox, nextSession));
+    } catch {
+      // Storage is a restart convenience layer only. Never block protocol actions on it.
+    }
+  }
+
+  async function refreshInbox(
+    baseInbox: InboxTaskSummary[] = inbox,
+    baseSession: SelectedTaskSession | undefined = session,
+  ) {
+    if (!gatewayBaseUrl) {
+      setGatewayError(
+        "Gateway URL is not configured. Set EXPO_PUBLIC_GROUND_RELAY_GATEWAY_URL to the /v1 base URL.",
+      );
+      setInboxSource(baseInbox.length > 0 ? "cached" : "unavailable");
+      return;
+    }
+
+    try {
+      const fresh = await fetchTaskInbox(gatewayBaseUrl);
+      const merged = mergeFreshInbox(
+        mobileState(baseInbox, baseSession),
+        fresh,
+        new Date().toISOString(),
+      );
+      setAuthoritative(undefined);
+      setInbox(fresh);
+      setSession(merged.selectedTask);
+      setInboxSource("fresh");
+      setGatewayError(undefined);
+      await persist(fresh, merged.selectedTask);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gateway inbox unavailable";
+      setGatewayError(message);
+      setInboxSource(baseInbox.length > 0 ? "cached" : "unavailable");
+    }
+  }
+
+  async function refreshSelectedTask(
+    summary: InboxTaskSummary | undefined = selectedTask,
+  ) {
+    setAuthoritative(undefined);
+
+    if (!summary?.chain?.taskPda) {
+      setChainError(
+        summary ? "Not yet executable on-chain: no task binding." : undefined,
+      );
+      return undefined;
+    }
+
+    try {
+      const onChain = await fetchGroundRelayTask(
+        client.rpc as never,
+        summary.chain.taskPda,
+      );
+      const reconciled = reconcileSelectedTask(summary, onChain);
+      setAuthoritative(reconciled);
       setChainError(undefined);
       return onChain;
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to read devnet task";
+        error instanceof Error ? error.message : "Failed to read selected devnet task";
       setChainError(message);
       return undefined;
     }
   }
 
-  async function reconcileExpectedTransition(
-    operation: RelayTransitionOperation,
-    expectedEvidenceHash?: string,
+  async function updateSession(
+    patch: Partial<
+      Pick<
+        SelectedTaskSession,
+        | "claimSignature"
+        | "deliverySignature"
+        | "payoutSignature"
+        | "expectedEvidenceHash"
+      >
+    >,
   ) {
-    if (!walletAddress) return false;
-
-    const onChain = await refreshTask();
-    if (!onChain) return false;
-
-    return didExpectedTransitionLand({
-      operation,
-      status: onChain.status,
-      worker: onChain.worker,
-      walletAddress,
-      evidenceHash: onChain.evidenceHash,
-      expectedEvidenceHash,
-    });
-  }
-
-  async function waitForConfirmation(signature: string) {
-    const rpc = client.rpc as unknown as {
-      getSignatureStatuses: (
-        signatures: string[],
-      ) => {
-        send: () => Promise<{
-          value: Array<
-            | {
-                err: unknown;
-                confirmationStatus?: "processed" | "confirmed" | "finalized";
-              }
-            | null
-          >;
-        }>;
-      };
+    if (!selectedTask) return;
+    const next = {
+      ...(session ?? selectTaskSession(selectedTask, new Date().toISOString())),
+      ...patch,
+      updatedAt: new Date().toISOString(),
     };
-
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      const response = await rpc.getSignatureStatuses([signature]).send();
-      const status = response.value[0];
-
-      if (status?.err) {
-        throw new Error("Solana confirmed the transaction with an error.");
-      }
-
-      if (
-        status?.confirmationStatus === "confirmed" ||
-        status?.confirmationStatus === "finalized"
-      ) {
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 1_000));
-    }
-
-    throw new Error(
-      "Transaction was submitted, but devnet confirmation timed out. Refresh the on-chain task before retrying.",
-    );
+    setSession(next);
+    await persist(inbox, next);
   }
 
   useEffect(() => {
-    void refreshTask();
-  }, [client]);
+    let cancelled = false;
+
+    async function boot() {
+      const cached = await loadMobileState();
+      if (cancelled) return;
+
+      const plan = buildRestartPlan(cached);
+      setInbox(cached.inboxSnapshot);
+      setSession(plan.session);
+      setInboxSource(cached.inboxSnapshot.length > 0 ? "cached" : "loading");
+
+      await refreshInbox(cached.inboxSnapshot, plan.session);
+    }
+
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setCapturedEvidence(undefined);
+    setAuthoritative(undefined);
+    setChainError(undefined);
+
+    if (selectedTask) {
+      void refreshSelectedTask(selectedTask);
+    }
+  }, [
+    client,
+    selectedTask?.id,
+    selectedTask?.chain?.taskPda,
+    selectedTask?.chain?.programId,
+    selectedTask?.poster,
+    selectedTask?.rewardAtomic,
+    selectedTask?.rewardMint,
+    selectedTask?.status,
+  ]);
+
+  async function chooseTask(task: InboxTaskSummary) {
+    const next = selectTaskSession(task, new Date().toISOString());
+    setSession(next);
+    setCapturedEvidence(undefined);
+    setAuthoritative(undefined);
+    setChainError(undefined);
+    await persist(inbox, next);
+  }
+
+  async function clearSelection() {
+    setSession(undefined);
+    setAuthoritative(undefined);
+    setCapturedEvidence(undefined);
+    setChainError(undefined);
+    await persist(inbox, undefined);
+  }
 
   async function connectWallet() {
     setBusy(true);
@@ -191,22 +304,83 @@ function RelayScreen() {
     }
   }
 
+  async function waitForConfirmation(signature: string) {
+    const rpc = client.rpc as unknown as {
+      getSignatureStatuses: (
+        signatures: string[],
+      ) => {
+        send: () => Promise<{
+          value: Array<
+            | {
+                err: unknown;
+                confirmationStatus?: "processed" | "confirmed" | "finalized";
+              }
+            | null
+          >;
+        }>;
+      };
+    };
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const response = await rpc.getSignatureStatuses([signature]).send();
+      const status = response.value[0];
+
+      if (status?.err) {
+        throw new Error("Solana confirmed the transaction with an error.");
+      }
+      if (
+        status?.confirmationStatus === "confirmed" ||
+        status?.confirmationStatus === "finalized"
+      ) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+
+    throw new Error(
+      "Transaction was submitted, but devnet confirmation timed out. Refresh the selected task before retrying.",
+    );
+  }
+
+  async function reconcileExpectedTransition(
+    operation: RelayTransitionOperation,
+    expectedEvidenceHash?: string,
+  ) {
+    if (!walletAddress || !selectedTask) return false;
+    const onChain = await refreshSelectedTask(selectedTask);
+    if (!onChain) return false;
+
+    return didExpectedTransitionLand({
+      operation,
+      status: onChain.status,
+      worker: onChain.worker,
+      walletAddress,
+      evidenceHash: onChain.evidenceHash,
+      expectedEvidenceHash,
+    });
+  }
+
   async function claimTask() {
-    if (!walletAddress || !canClaim) return;
+    if (
+      !walletAddress ||
+      !selectedTask ||
+      !authoritative ||
+      !eligibility.canClaim
+    ) {
+      return;
+    }
 
     setBusy(true);
     try {
       const nextSignature = await sendTransactions([
-        getClaimTaskInstruction(walletAddress),
+        getClaimTaskInstruction(walletAddress, authoritative.taskPda),
       ]);
-
       const signature = nextSignature.toString();
-      setClaimSignature(signature);
+      await updateSession({ claimSignature: signature });
       await waitForConfirmation(signature);
-      await refreshTask();
+      await refreshSelectedTask(selectedTask);
     } catch (error) {
       if (await reconcileExpectedTransition("claim")) return;
-
       const message =
         error instanceof Error ? error.message : "Wallet transaction failed";
       Alert.alert("Claim failed", message);
@@ -216,14 +390,12 @@ function RelayScreen() {
   }
 
   async function captureEvidence() {
-    if (!canCapture) return;
+    if (!selectedTask || !eligibility.canCapture) return;
 
     setBusy(true);
     try {
-      const evidence = await capturePhotoEvidence(task.id);
-      if (evidence) {
-        setCapturedEvidence(evidence);
-      }
+      const evidence = await capturePhotoEvidence(selectedTask.id);
+      if (evidence) setCapturedEvidence(evidence);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Evidence capture failed";
@@ -234,22 +406,40 @@ function RelayScreen() {
   }
 
   async function submitEvidence() {
-    if (!walletAddress || !capturedEvidence || !canSubmit) return;
-    const evidenceHash = capturedEvidence.sha256;
+    if (
+      !walletAddress ||
+      !selectedTask ||
+      !authoritative ||
+      !capturedEvidence ||
+      !eligibility.canSubmit
+    ) {
+      return;
+    }
 
+    const evidenceHash = capturedEvidence.sha256;
     setBusy(true);
     try {
+      await updateSession({ expectedEvidenceHash: evidenceHash });
       const nextSignature = await sendTransactions([
-        getSubmitEvidenceInstruction(walletAddress, evidenceHash),
+        getSubmitEvidenceInstruction(
+          walletAddress,
+          authoritative.taskPda,
+          evidenceHash,
+        ),
       ]);
-
       const signature = nextSignature.toString();
-      setDeliverySignature(signature);
+      await updateSession({
+        deliverySignature: signature,
+        expectedEvidenceHash: evidenceHash,
+      });
       await waitForConfirmation(signature);
-      await refreshTask();
+      await refreshSelectedTask(selectedTask);
     } catch (error) {
-      if (await reconcileExpectedTransition("submitEvidence", evidenceHash)) return;
-
+      if (
+        await reconcileExpectedTransition("submitEvidence", evidenceHash)
+      ) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Evidence submission failed";
       Alert.alert("Delivery failed", message);
@@ -258,74 +448,143 @@ function RelayScreen() {
     }
   }
 
-  async function releasePayout() {
-    if (!walletAddress || !canRelease) return;
+  const walletCard = (
+    <View style={styles.walletCard}>
+      <View>
+        <Text style={styles.label}>WORKER WALLET</Text>
+        <Text style={styles.walletText}>
+          {walletAddress ? shortAddress(walletAddress) : "Not connected"}
+        </Text>
+      </View>
+      <Pressable
+        style={[styles.secondaryButton, busy && styles.disabled]}
+        disabled={busy}
+        onPress={walletAddress ? disconnectWallet : connectWallet}
+      >
+        <Text style={styles.secondaryButtonText}>
+          {walletAddress ? "Disconnect" : "Connect"}
+        </Text>
+      </Pressable>
+    </View>
+  );
 
-    setBusy(true);
-    try {
-      const nextSignature = await sendTransactions([
-        getReleasePaymentInstruction(walletAddress),
-      ]);
+  if (!selectedTask) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar style="light" />
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.hero}>
+            <Text style={styles.eyebrow}>CLOCK IN · SOLANA MOBILE</Text>
+            <Text style={styles.title}>Ground Relay</Text>
+            <Text style={styles.subtitle}>
+              Human-in-the-loop execution for autonomous agents.
+            </Text>
+          </View>
 
-      const signature = nextSignature.toString();
-      setPayoutSignature(signature);
-      await waitForConfirmation(signature);
-      await refreshTask();
-    } catch (error) {
-      if (await reconcileExpectedTransition("releasePayment")) return;
+          {walletCard}
 
-      const message =
-        error instanceof Error ? error.message : "Escrow payout failed";
-      Alert.alert("Payout failed", message);
-    } finally {
-      setBusy(false);
-    }
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Task inbox</Text>
+              <Text style={styles.meta}>
+                {inboxSource === "fresh"
+                  ? "Live Gateway snapshot"
+                  : inboxSource === "cached"
+                    ? "Cached snapshot · Gateway refresh unavailable"
+                    : inboxSource === "loading"
+                      ? "Loading Gateway…"
+                      : "Gateway unavailable"}
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.secondaryButton, busy && styles.disabled]}
+              disabled={busy}
+              onPress={() => void refreshInbox()}
+            >
+              <Text style={styles.secondaryButtonText}>Refresh</Text>
+            </Pressable>
+          </View>
+
+          {inboxSource === "loading" ? <ActivityIndicator /> : null}
+
+          {inbox.map((task) => (
+            <Pressable
+              key={task.id}
+              style={styles.taskCard}
+              onPress={() => void chooseTask(task)}
+            >
+              <View style={styles.taskHeader}>
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusText}>{task.status.toUpperCase()}</Text>
+                </View>
+                <Text style={styles.reward}>{formatReward(task)}</Text>
+              </View>
+              <Text style={styles.taskTitle}>{task.title}</Text>
+              <Text style={styles.taskDescription}>{task.description}</Text>
+              <Text style={styles.meta}>
+                {task.chain?.taskPda
+                  ? `Bound · ${shortAddress(task.chain.taskPda)}`
+                  : "Not yet executable on-chain"}
+              </Text>
+            </Pressable>
+          ))}
+
+          {inbox.length === 0 && inboxSource !== "loading" ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.taskDescription}>No tasks available.</Text>
+            </View>
+          ) : null}
+
+          {gatewayError ? (
+            <Text style={styles.warning}>Gateway: {gatewayError}</Text>
+          ) : null}
+
+          <Text style={styles.footer}>
+            Gateway discovers tasks. Solana devnet remains authoritative for task
+            state and execution.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
   }
+
+  const criteriaDone = selectedTask.criteria.filter(
+    (criterion) => criterion.required,
+  ).length;
+  const claimSignature = session?.claimSignature;
+  const deliverySignature = session?.deliverySignature;
+  const payoutSignature = session?.payoutSignature;
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
+          <Pressable onPress={() => void clearSelection()}>
+            <Text style={styles.backText}>← Task inbox</Text>
+          </Pressable>
           <Text style={styles.eyebrow}>CLOCK IN · SOLANA MOBILE</Text>
           <Text style={styles.title}>Ground Relay</Text>
-          <Text style={styles.subtitle}>
-            Human-in-the-loop execution for autonomous agents.
-          </Text>
         </View>
 
-        <View style={styles.walletCard}>
-          <View>
-            <Text style={styles.label}>WORKER WALLET</Text>
-            <Text style={styles.walletText}>
-              {walletAddress ? shortAddress(walletAddress) : "Not connected"}
-            </Text>
-          </View>
-          <Pressable
-            style={[styles.secondaryButton, busy && styles.disabled]}
-            disabled={busy}
-            onPress={walletAddress ? disconnectWallet : connectWallet}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {walletAddress ? "Disconnect" : "Connect"}
-            </Text>
-          </Pressable>
-        </View>
+        {walletCard}
 
         <View style={styles.taskCard}>
           <View style={styles.taskHeader}>
             <View style={styles.statusPill}>
-              <Text style={styles.statusText}>{task.status.toUpperCase()}</Text>
+              <Text style={styles.statusText}>
+                {(displayStatus ?? "unknown").toUpperCase()}
+              </Text>
             </View>
-            <Text style={styles.reward}>0.001 WSOL</Text>
+            <Text style={styles.reward}>{formatReward(selectedTask)}</Text>
           </View>
 
-          <Text style={styles.taskTitle}>{task.title}</Text>
-          <Text style={styles.taskDescription}>{task.description}</Text>
+          <Text style={styles.taskTitle}>{selectedTask.title}</Text>
+          <Text style={styles.taskDescription}>{selectedTask.description}</Text>
 
           <Text style={styles.label}>ACCEPTANCE CRITERIA</Text>
           <View style={styles.criteria}>
-            {task.criteria.map((criterion) => (
+            {selectedTask.criteria.map((criterion) => (
               <View key={criterion.id} style={styles.criterion}>
                 <Text style={styles.bullet}>✓</Text>
                 <Text style={styles.criterionText}>{criterion.description}</Text>
@@ -334,25 +593,37 @@ function RelayScreen() {
           </View>
 
           <Text style={styles.meta}>
-            {criteriaDone} required checks · task {task.id}
+            {criteriaDone} required checks · task {selectedTask.id}
+          </Text>
+          <Text style={styles.meta}>
+            {selectedTask.chain?.taskPda
+              ? `Selected PDA ${shortAddress(selectedTask.chain.taskPda)}`
+              : "Not yet executable on-chain"}
+          </Text>
+          <Text style={styles.meta}>
+            {authoritative
+              ? `Authoritative devnet state · worker ${
+                  displayWorker ? shortAddress(displayWorker) : "unassigned"
+                }`
+              : "Actions locked until authoritative devnet reconciliation succeeds"}
           </Text>
 
           {claimSignature ? (
             <View style={styles.receipt}>
-              <Text style={styles.label}>ANCHOR CLAIM RECEIPT · DEVNET</Text>
+              <Text style={styles.label}>CLAIM RECEIPT · DEVNET</Text>
               <Text selectable style={styles.receiptText}>
                 {claimSignature}
               </Text>
             </View>
           ) : null}
 
-          {task.status === "open" ? (
+          {displayStatus === "open" ? (
             <Pressable
               style={[
                 styles.primaryButton,
-                (!canClaim || busy) && styles.disabled,
+                (!eligibility.canClaim || busy) && styles.disabled,
               ]}
-              disabled={!canClaim || busy}
+              disabled={!eligibility.canClaim || busy}
               onPress={claimTask}
             >
               {busy ? (
@@ -367,7 +638,7 @@ function RelayScreen() {
             </Pressable>
           ) : null}
 
-          {task.status === "claimed" ? (
+          {displayStatus === "claimed" ? (
             <>
               {capturedEvidence ? (
                 <View style={styles.evidenceCard}>
@@ -388,39 +659,44 @@ function RelayScreen() {
               ) : null}
 
               <Pressable
-                style={[styles.secondaryAction, busy && styles.disabled]}
-                disabled={!canCapture || busy}
+                style={[
+                  styles.secondaryAction,
+                  (!eligibility.canCapture || busy) && styles.disabled,
+                ]}
+                disabled={!eligibility.canCapture || busy}
                 onPress={captureEvidence}
               >
                 <Text style={styles.secondaryActionText}>
-                  {capturedEvidence ? "Retake evidence photo" : "Capture evidence photo"}
+                  {capturedEvidence
+                    ? "Retake evidence photo"
+                    : "Capture evidence photo"}
                 </Text>
               </Pressable>
 
               <Pressable
                 style={[
                   styles.primaryButton,
-                  (!canSubmit || busy) && styles.disabled,
+                  (!eligibility.canSubmit || busy) && styles.disabled,
                 ]}
-                disabled={!canSubmit || busy}
+                disabled={!eligibility.canSubmit || busy}
                 onPress={submitEvidence}
               >
                 {busy ? (
                   <ActivityIndicator />
                 ) : (
                   <Text style={styles.primaryButtonText}>
-                    Submit evidence to Anchor on devnet
+                    Submit evidence to selected Anchor task
                   </Text>
                 )}
               </Pressable>
             </>
           ) : null}
 
-          {task.status === "delivered" && task.evidenceHash ? (
+          {displayStatus === "delivered" && authoritative?.evidenceHash ? (
             <View style={styles.receipt}>
               <Text style={styles.label}>ANCHOR DELIVERY · DEVNET</Text>
               <Text style={styles.receiptText}>
-                evidence {shortHash(task.evidenceHash)}
+                evidence {shortHash(authoritative.evidenceHash)}
               </Text>
               {deliverySignature ? (
                 <Text selectable style={styles.receiptText}>
@@ -430,39 +706,29 @@ function RelayScreen() {
             </View>
           ) : null}
 
-          {task.status === "accepted" ? (
-            <>
-              <View style={styles.receipt}>
-                <Text style={styles.label}>DELIVERY ACCEPTED · DEVNET</Text>
-                <Text style={styles.receiptText}>
-                  Escrow payout is ready for the assigned worker.
-                </Text>
-              </View>
-
+          {displayStatus === "accepted" ? (
+            <View style={styles.receipt}>
+              <Text style={styles.label}>DELIVERY ACCEPTED · DEVNET</Text>
+              <Text style={styles.receiptText}>
+                Generic payout remains locked until vault and worker-token account
+                derivation is independently verified.
+              </Text>
               <Pressable
-                style={[
-                  styles.primaryButton,
-                  (!canRelease || busy) && styles.disabled,
-                ]}
-                disabled={!canRelease || busy}
-                onPress={releasePayout}
+                style={[styles.primaryButton, styles.disabled]}
+                disabled
               >
-                {busy ? (
-                  <ActivityIndicator />
-                ) : (
-                  <Text style={styles.primaryButtonText}>
-                    Release 0.001 WSOL payout
-                  </Text>
-                )}
+                <Text style={styles.primaryButtonText}>
+                  Payout verification pending
+                </Text>
               </Pressable>
-            </>
+            </View>
           ) : null}
 
-          {task.status === "paid" ? (
+          {displayStatus === "paid" ? (
             <View style={styles.receipt}>
               <Text style={styles.label}>ESCROW PAID · DEVNET</Text>
               <Text style={styles.receiptText}>
-                0.001 WSOL released to the worker token account.
+                Solana reports this selected task as paid.
               </Text>
               {payoutSignature ? (
                 <Text selectable style={styles.receiptText}>
@@ -472,18 +738,24 @@ function RelayScreen() {
             </View>
           ) : null}
 
-          <Pressable style={styles.resetButton} onPress={() => void refreshTask()}>
-            <Text style={styles.resetText}>Refresh on-chain task</Text>
+          <Pressable
+            style={styles.resetButton}
+            onPress={() => void refreshSelectedTask()}
+          >
+            <Text style={styles.resetText}>Refresh selected on-chain task</Text>
           </Pressable>
         </View>
 
         {chainError ? (
-          <Text style={styles.chainError}>Devnet read: {chainError}</Text>
+          <Text style={styles.warning}>Devnet read: {chainError}</Text>
+        ) : null}
+        {gatewayError ? (
+          <Text style={styles.warning}>Gateway: {gatewayError}</Text>
         ) : null}
 
         <Text style={styles.footer}>
-          Live path: funded escrow → wallet claim → camera evidence → SHA-256 →
-          Anchor delivery → verifier acceptance → worker payout. Next: agent resume.
+          Restart restores only safe task context. Every state-changing action
+          stays locked until this exact selected PDA is reconciled against Solana.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -527,6 +799,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
   },
+  backText: {
+    color: "#aefbc7",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
   walletCard: {
     alignItems: "center",
     backgroundColor: "#101713",
@@ -536,6 +814,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 16,
+  },
+  sectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  sectionTitle: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
   },
   label: {
     color: "#789184",
@@ -567,10 +856,18 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 18,
   },
+  emptyCard: {
+    backgroundColor: "#111713",
+    borderColor: "#2a3f31",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+  },
   taskHeader: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 10,
   },
   statusPill: {
     backgroundColor: "#183a24",
@@ -585,8 +882,10 @@ const styles = StyleSheet.create({
   },
   reward: {
     color: "#ffffff",
-    fontSize: 18,
+    flexShrink: 1,
+    fontSize: 13,
     fontWeight: "800",
+    textAlign: "right",
   },
   taskTitle: {
     color: "#ffffff",
@@ -642,6 +941,7 @@ const styles = StyleSheet.create({
     color: "#071109",
     fontSize: 15,
     fontWeight: "900",
+    textAlign: "center",
   },
   secondaryAction: {
     alignItems: "center",
@@ -686,7 +986,7 @@ const styles = StyleSheet.create({
     color: "#93a298",
     fontSize: 12,
   },
-  chainError: {
+  warning: {
     color: "#d6a96f",
     fontSize: 11,
     lineHeight: 17,
