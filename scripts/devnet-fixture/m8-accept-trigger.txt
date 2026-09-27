@@ -1,2 +1,2 @@
 trigger acceptance after confirmed physical DELIVERED state
-2026-09-27T10:00:00Z
+2026-09-27T10:05:00Z
