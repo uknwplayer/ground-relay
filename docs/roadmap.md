@@ -149,14 +149,17 @@ Current SBF + IDL proof:
 - `IDL client consistency` run `36289499220` — PASS
 
 Hardened devnet deployment:
-- controlled upgrade run `36294101421`, attempt 2 — PASS
-- upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- original controlled hardened upgrade run `36294101421`, attempt 2 — PASS
+- original upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- latest controlled same-SBF deploy confirmation run `36296759500` — PASS at branch commit `b58718faa6cd46b552e5b83e6c9346edd669a1e9`
 - Program ID remained `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- SBF program data extended from 230,680 to 254,144 bytes during the upgrade
+- SBF program data extended from 230,680 to 254,144 bytes during the first hardened upgrade
 - canonical ProgramData remained `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
-- independent signer-free preflight run `36296153445` — PASS
-- independently observed last deployed slot `504665480`
+- fresh independent signer-free preflight run `36296153445`, attempt 2 — PASS
+- independently observed last deployed slot `504672943`
+- confirmed RPC context slot `504690023`
 - upgrade authority remained `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
+- fresh verification checkpoint: `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`
 
 The current hardened SBF is therefore live on Solana devnet under the existing controlled identity. No mainnet deployment is authorized or implied.
 
