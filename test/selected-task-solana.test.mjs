@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  GROUND_RELAY_TASK_ADDRESS,
   fetchGroundRelayTask,
   getClaimTaskInstruction,
   getReleasePaymentInstruction,
@@ -10,7 +9,7 @@ import {
 } from "../src/solana/ground-relay.ts";
 
 const worker = "7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C";
-const taskA = GROUND_RELAY_TASK_ADDRESS.toString();
+const taskA = "7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT";
 const taskB = "6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ";
 const rewardMint = "So11111111111111111111111111111111111111112";
 const vaultPda = "FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm";

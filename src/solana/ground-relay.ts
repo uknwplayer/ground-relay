@@ -13,32 +13,9 @@ export const GROUND_RELAY_PROGRAM_ADDRESS = address(
   "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap",
 );
 
-export const GROUND_RELAY_TASK_ADDRESS = address(
-  "7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT",
-);
-
-export const GROUND_RELAY_VAULT_ADDRESS = address(
-  "FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm",
-);
-
-export const GROUND_RELAY_REWARD_MINT = address(
-  "So11111111111111111111111111111111111111112",
-);
-
-export const GROUND_RELAY_WORKER_TOKEN_ADDRESS = address(
-  "2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6",
-);
-
 export const SPL_TOKEN_PROGRAM_ADDRESS = address(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 );
-
-export const GROUND_RELAY_POSTER_ADDRESS = address(
-  "6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ",
-);
-
-export const GROUND_RELAY_FIXTURE_TASK_ID =
-  "e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662";
 
 const TASK_ACCOUNT_DISCRIMINATOR = new Uint8Array([
   209, 72, 197, 54, 17, 55, 3, 187,
