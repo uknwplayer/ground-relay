@@ -105,7 +105,7 @@ Post-merge Gateway check: `36249541738` — PASS.
 - [x] Real wallet/network recovery exercise: payout reached Solana while the phone lost DNS access to the RPC; no transaction was replayed and final `PAID` reconciliation recovered after network restoration.
 - [x] Regression fix preventing stale Gateway `OPEN` state from being presented as authoritative during RPC failure.
 - [x] Historical runtime fixture/demo state retired; hosted physical-proof seed terminalized as `PAID`.
-- [~] Final consolidated quality/hygiene sweep and documentation closeout.
+- [x] Final consolidated mobile/Gateway/Anchor/hygiene quality sweep.
 - [ ] Deep-link/QR handoff — optional and deferred to M9 unless it materially improves submission UX.
 
 ### M8 evidence
@@ -149,13 +149,24 @@ Network-recovery regression:
 - RED `36312405844` — stale-authority display test failed before fix
 - GREEN `36312595528` — mobile tests + typecheck PASS after fix
 
-**Remaining M8 blocker:** one fresh consolidated repository quality/hygiene sweep must pass after the final cleanup, then documentation can record M8 as complete.
+Consolidated closeout:
 
-**Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Closeout verification in progress.**
+- M8 final quality sweep `36313234829` — PASS
+- root mobile tests `106/106`
+- Gateway tests `63/63`
+- TypeScript typecheck PASS
+- deterministic Gateway demo PASS
+- Anchor workspace host tests PASS
+- repository hygiene PASS across `41` tracked active-source files / `128` tracked files
+
+Detailed completion record: `docs/checkpoints/archive/2026-09-27-m8-complete.md`.
+
+**Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Complete.**
 
 ## M9 — Release and hackathon submission
 
-- [ ] Produce the final installable APK from the post-M8 branch state.
+- [~] Integrate the completed M8 branch into `main` using the chosen review/merge path.
+- [ ] Produce the final installable APK from the post-M8 integrated state.
 - [ ] Verify fresh-device installation of the release candidate.
 - [ ] Record final public proof links and reviewer-facing verification instructions.
 - [ ] Final README/architecture polish for submission.
