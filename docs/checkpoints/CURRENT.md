@@ -8,7 +8,7 @@
 
 ## Current state
 
-M5, M6, M7, and M8 are complete. M8 was merged through PR #3 and `main` now points at the verified integration commit above.
+M5, M6, M7, and M8 are complete. M8 was merged through PR #3 and `main` points at the verified integration commit above.
 
 Ground Relay has physically proved the hardened devnet loop on a fresh non-canonical task:
 
@@ -16,7 +16,7 @@ Ground Relay has physically proved the hardened devnet loop on a fresh non-canon
 
 The proof also exercised a real post-wallet DNS/RPC failure. The payout had already reached Solana, the app did not replay the transaction, and the Android UI later reconciled to `PAID` after network recovery.
 
-M9 is now focused on release provenance, fresh-device verification, reviewer-facing proof instructions, README/architecture polish, and submission media. Runtime changes are deferred unless they materially improve reviewer UX without touching payment authorization.
+M9 is now focused on release provenance, clean-device verification, reviewer-facing proof instructions, README/architecture polish, and submission media. Runtime changes are deferred unless they materially improve reviewer UX without touching payment authorization.
 
 ## Controlled devnet identity
 
@@ -105,24 +105,45 @@ Worker API:
 
 The persisted physical-proof seed is terminalized as `PAID`; a cold start must not re-advertise it as fresh work.
 
-## M9 release-candidate status
+## M9 release candidate
 
-The merge to `main` automatically triggered the Android standalone release workflow for commit `ffcb9b7d69e159ec05fd11139b02bbb442099299`.
+The post-M8 integrated `main` state produced a standalone Android release APK.
 
-Run:
+Source commit:
 
-`36329825769`
+`ffcb9b7d69e159ec05fd11139b02bbb442099299`
 
-Current status at this checkpoint update:
+Android run:
 
-**IN PROGRESS — Gradle release build**
+`36329825769` — **PASS**
 
-When it completes, M9 Task 1 requires:
+Artifact:
 
-1. artifact `ground-relay-standalone-apk`;
-2. downloaded APK SHA-256;
-3. confirmation that the hosted Gateway `/v1` URL is embedded;
-4. a fresh-device install/reopen check before the candidate is called final.
+`ground-relay-standalone-apk` (`10935757058`)
+
+GitHub ZIP digest and locally downloaded ZIP SHA-256:
+
+`5d273aa2b8c56f4775c797f3a16b257cc4dc3c468d43c3303382e43426b565b2`
+
+APK size:
+
+`114,098,915` bytes
+
+APK SHA-256:
+
+`cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`
+
+Raw APK inspection confirmed the intended Gateway URL exactly once:
+
+`https://ground-relay-agent-gateway-m8.onrender.com/v1`
+
+Detailed provenance:
+
+`docs/release-candidate.md`
+
+Reviewer verification kit:
+
+`docs/reviewer-verification.md`
 
 ## M9 plan
 
@@ -142,10 +163,14 @@ When it completes, M9 Task 1 requires:
 
 ## Next recommended action
 
-Finish M9 Task 1:
+Human-controlled clean-install gate for the exact M9 APK:
 
-1. wait for Android run `36329825769` to complete;
-2. download and hash the APK;
-3. record release provenance in `docs/release-candidate.md`;
-4. perform one fresh-device install/reopen verification;
-5. then build the reviewer verification kit and submission assets.
+1. remove/clear the previous Ground Relay installation;
+2. install the exact release candidate APK with SHA-256 `cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`;
+3. open and connect an MWA-compatible wallet;
+4. refresh the inbox and open the completed M8 proof task;
+5. verify authoritative `PAID` reconciliation;
+6. close/reopen once and confirm safe context restoration;
+7. do not issue any new historical-task transaction.
+
+After this gate passes, proceed with reviewer-facing README polish, the 90-second demo/video package, screenshots, pitch deck, and final submission copy.
