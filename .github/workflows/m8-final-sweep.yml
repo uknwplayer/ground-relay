@@ -1,0 +1,98 @@
+name: M8 final quality sweep
+
+on:
+  push:
+    branches: ["m8-product-hardening"]
+    paths:
+      - ".github/workflows/m8-final-sweep.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Mobile tests and typecheck
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm run typecheck
+
+      - name: Gateway tests and deterministic demo
+        run: |
+          npm ci --prefix gateway --no-audit --no-fund
+          npm test --prefix gateway
+          npm run demo --prefix gateway
+
+      - name: Anchor host tests
+        run: cargo test --workspace
+
+      - name: Repository hygiene audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          root = Path('.')
+          failures = []
+
+          canonical_task_id = 'e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662'
+          runtime_roots = [Path('App.tsx'), Path('src'), Path('gateway')]
+          for entry in runtime_roots:
+              files = [entry] if entry.is_file() else [p for p in entry.rglob('*') if p.is_file()]
+              for path in files:
+                  try:
+                      text = path.read_text()
+                  except UnicodeDecodeError:
+                      continue
+                  if canonical_task_id in text:
+                      failures.append(f'historical canonical task id remains in runtime source: {path}')
+
+          stale_readme = [
+              'Generic arbitrary-task payout remains deliberately fail-closed',
+              'Callback URL validation is centralized; production SSRF/allowlist hardening remains M8 work.',
+              'M8 as a whole remains active',
+          ]
+          readme = Path('README.md').read_text()
+          for phrase in stale_readme:
+              if phrase in readme:
+                  failures.append(f'stale README claim: {phrase}')
+
+          current = Path('docs/checkpoints/CURRENT.md').read_text()
+          if 'M8 is **not complete yet** because the generic flow still needs a fresh physical non-canonical end-to-end proof' in current:
+              failures.append('CURRENT checkpoint still says fresh physical M8 proof is pending')
+
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          secret_name = re.compile(r'(^|/)(\.env($|\.)|id\.json$|.*keypair.*\.json$|.*secret.*\.json$)', re.I)
+          for path in tracked:
+              if secret_name.search(path):
+                  failures.append(f'suspicious tracked secret/key filename: {path}')
+
+          for base in [Path('App.tsx'), Path('src'), Path('gateway'), Path('programs')]:
+              files = [base] if base.is_file() else [p for p in base.rglob('*') if p.is_file()]
+              for path in files:
+                  try:
+                      text = path.read_text()
+                  except UnicodeDecodeError:
+                      continue
+                  if re.search(r'\b(TODO|FIXME)\b', text):
+                      failures.append(f'TODO/FIXME remains in active source: {path}')
+
+          if failures:
+              print('M8 final hygiene audit: FAIL')
+              for failure in failures:
+                  print(f'- {failure}')
+              raise SystemExit(1)
+
+          print('M8 final hygiene audit: PASS')
+          PY
