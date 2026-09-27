@@ -1,234 +1,176 @@
 # Ground Relay roadmap
 
-This roadmap is the project execution plan from the completed prototype work to a finished hackathon-ready product.
+This roadmap tracks the path from the proven prototype to a repeatable, hackathon-ready product.
 
 ## Status legend
 
 - [x] complete and evidenced
 - [~] in progress
-- [ ] not started
+- [ ] not complete
 
 ## M0 — Project foundation
 
-- [x] CLOCK IN project/repository established
-- [x] Public GitHub repository
-- [x] Android / Expo / React Native baseline
-- [x] Solana devnet chosen as the development network
-- [x] CI and standalone APK workflow established
+- [x] Public repository, Android/Expo/React Native baseline, Solana devnet development target, CI, and standalone APK workflow.
 
-**Exit condition:** reproducible repository and Android build foundation.
+**Exit condition:** reproducible repository and Android build foundation. **Complete.**
 
 ## M1 — Mobile human-in-the-loop prototype
 
-- [x] Solflare connection through Mobile Wallet Adapter on a physical Android device
-- [x] Worker wallet returned to the app
-- [x] Devnet claim receipt submitted and confirmed
-- [x] Camera evidence capture on-device
-- [x] SHA-256 evidence hashing on-device
-- [x] Devnet delivery receipt submitted and confirmed
-- [x] Local task progression OPEN -> CLAIMED -> DELIVERED
-- [x] Claim and delivery signatures displayed in the app
+- [x] Physical Android Solflare connection through Mobile Wallet Adapter.
+- [x] Camera evidence capture and on-device SHA-256.
+- [x] Devnet claim/delivery receipts and visible task progression.
 
-**Evidence:**
-- claim: `23My4fQYQy3vp6YpkSPRfLFBMqkLuusmZJFN92pGB9mjjATAwKSamXjQVZxT8Giy3Ekii8QLeT8SofRzavKc3BTy`
-- delivery: `5hycogT2MMUKfnXTuYgS1jgzvP6atyeBAEsEoEzpjGdFYUD4dXzB53EfUPHnqA6xwzVkLtw6krRwStDQyQKvEQGN`
-
-**Exit condition:** a real Android device proves wallet -> claim receipt -> camera -> evidence hash -> delivery receipt.
+**Exit condition:** physical-device wallet -> claim -> camera -> evidence hash -> delivery proof. **Complete.**
 
 ## M2 — Anchor escrow program readiness
 
-- [x] Anchor task/escrow state machine implemented
-- [x] `post_task`
-- [x] `claim_task`
-- [x] `submit_evidence`
-- [x] `accept_task`
-- [x] `release_payment`
-- [x] `cancel_open_task`
-- [x] Transition guard tests for claim, submission, acceptance, payout, and cancellation
-- [x] Reproducible SBF + IDL build in GitHub Actions
-- [x] Private deployment material excluded from git
-- [x] Controlled devnet program identity created and stored through GitHub Actions Secrets
-- [x] `declare_id` and `Anchor.toml` aligned
+- [x] `post_task`, `claim_task`, `submit_evidence`, `accept_task`, `release_payment`, and `cancel_open_task`.
+- [x] Transition guard tests and reproducible SBF + IDL build.
+- [x] Controlled deployment identity, no private deployment material in git.
 
-Controlled devnet program ID:
+Controlled program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-**Exit condition:** tested program, reproducible artifacts, and a controlled deployment identity.
+**Exit condition:** tested program, reproducible artifacts, controlled identity. **Complete.**
 
 ## M3 — First real devnet deployment
 
-- [x] Deploy the Anchor program to devnet
-- [x] Verify the program account is executable at the controlled program ID
-- [x] Record deployment transaction/signature and program metadata
-- [x] Confirm upgrade authority and deployment ownership
-- [x] Confirm no program-code fix is required after deployment verification
-- [x] Write a deployment checkpoint
+- [x] Anchor program deployed to devnet at the controlled program ID.
+- [x] Executability, upgrade authority, ownership, and deployment metadata verified.
 
-**Rule:** do not regenerate the program identity or deployment Secrets merely to fix a deployment error.
-
-**Exit condition:** the Ground Relay Anchor program exists and is verifiably executable on Solana devnet.
+**Exit condition:** verifiably executable Ground Relay program on devnet. **Complete.**
 
 ## M4 — Real escrow fixture on devnet
 
-- [x] Select a clearly labeled devnet payment asset for the demo (WSOL)
-- [x] Create poster and worker token accounts
-- [x] Create a real task PDA with `post_task`
-- [x] Fund the task vault with the reward
-- [x] Verify task PDA, vault PDA, mint, amount, poster, status, and expiry on-chain
-- [x] Add a repeatable script/test fixture without exposing private keys
+- [x] Real funded WSOL task/vault fixture created and inspected on-chain.
+- [x] Repeatable fixture tooling without committed private keys.
 
-**Exit condition:** an OPEN task exists on-chain with an actually funded escrow vault.
+The canonical fixture later completed the lifecycle and is now historical `PAID` proof. It must not be reset or presented as a fresh OPEN task.
 
-The canonical M4 fixture has since completed the full lifecycle and is now legitimately `PAID`; it remains the end-to-end proof and should not be reset or impersonated as a fresh OPEN task.
+**Exit condition:** real funded on-chain escrow task. **Complete.**
 
 ## M5 — Mobile app -> Anchor integration
 
-- [x] Commit the deployed IDL and guard the Kit client against IDL drift
-- [x] Read the real task account from devnet on a physical Android device
-- [x] Replace the memo-backed mobile claim with real `claim_task`
-- [x] Keep camera evidence off-chain and submit its SHA-256 through `submit_evidence`
-- [x] Hydrate app status from the on-chain task instead of local-only state
-- [x] Display real Anchor transaction/state receipts
-- [x] Add network/program mismatch guards
-- [x] Reconcile ambiguous Mobile Wallet Adapter returns against authoritative on-chain state
-- [x] Add regression tests for claim/delivery/payout reconciliation
+- [x] Physical Android app reads the real task PDA and performs direct Anchor transitions.
+- [x] Camera bytes remain off-chain; SHA-256 is submitted through `submit_evidence`.
+- [x] MWA ambiguous-return reconciliation uses authoritative Solana state.
+- [x] Full physical lifecycle proved: `OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`.
 
-Physical proof completed:
-
-`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
-
-Payout transaction:
+Physical payout:
 
 `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
 
-Independent post-payout inspection run: `36207197941`.
+Independent post-payout inspection: run `36207197941`.
 
-**Exit condition:** the physical Android app performs direct Anchor transitions against the Ground Relay program. **Complete.**
+**Exit condition:** physical Android performs direct Anchor transitions. **Complete.**
 
 ## M6 — Acceptance, payout, and failure paths
 
-- [x] Poster/verifier accepts valid delivery with `accept_task`
-- [x] `release_payment` transfers the escrowed SPL reward to the worker
-- [x] Verify worker token balance changed by the expected amount
-- [x] Prove a paid task cannot pay twice on devnet and balances remain unchanged after rejection
-- [x] Prove wrong-worker rejection on devnet
-- [x] Prove wrong-poster rejection on devnet
-- [x] Prove release-before-acceptance and other invalid-state rejection on devnet
-- [x] Prove expired tasks cannot be claimed on devnet
-- [x] Implement/test open-task cancellation and exact escrow refund on devnet
-- [x] Define expiry/reopen policy: expired OPEN tasks are cancelled/refunded; reopening uses a new task ID
-- [x] Keep `WrongMint` and `EscrowUnderfunded` defense-in-depth validator coverage; normal initialized state structurally prevents manufacturing those conditions
+- [x] Successful acceptance and payout.
+- [x] Wrong-worker, wrong-poster, premature release, double payout, expired claim, cancel/refund, and post-cancel guards proved on devnet.
+- [x] Defense-in-depth mint/underfunding validators retained.
 
-Verified successful settlement evidence:
+Guard run: `36208008464`.
 
-- acceptance signature: `4QVs7r2xBgSNzZHm8z3N5jbJZKVNCAT4cXEw9pTCqVRv79DchyYDfjnUXUsDJCVWuWFZCZ6WJYE1zTBrDoHSF8Hd`
-- physical payout signature: `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
-- canonical final vault amount: `0`
-- canonical final worker token amount: `1,000,000` atomic WSOL
+Detailed record: `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`.
 
-Isolated guard suite:
-
-- workflow run: `36208008464`
-- wrong worker: PASS
-- wrong poster: PASS
-- premature release: PASS
-- second payout rejected with state/balances unchanged: PASS
-- expired claim: PASS
-- cancellation/refund: PASS
-- second cancellation and claim-after-cancel: PASS
-
-Detailed proof: `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`.
-
-**Exit condition:** successful settlement plus critical adversarial/lifecycle paths are demonstrated. **Complete.**
-
-Task/vault rent reclamation is intentionally moved to M8 hardening because it requires a deliberate account-closure/API policy and is not required for settlement correctness.
+**Exit condition:** successful settlement plus critical adversarial/lifecycle paths. **Complete.**
 
 ## M7 — Agent Gateway and resume loop
 
-- [x] Durable agent-facing task creation API with required callback URL
-- [x] Persist external task ID <-> on-chain task PDA/post signature mapping
-- [x] Authoritative Solana task synchronization for bound tasks
-- [x] Persist task/idempotency/callback state across Gateway restart
-- [x] Idempotent create semantics with conflict detection
-- [x] Stable resume event ID and `Idempotency-Key`
-- [x] Verified PAID settlement notification; a client cannot mark an unpaid task paid
-- [x] Actual agent resume callback after settlement
-- [x] Retry/failure classification with persisted +1s/+2s/+4s/+8s/+16s backoff
-- [x] Restart recovery for pending callback retries
-- [x] Manual retry for an existing undelivered resume event
-- [x] Bound tasks reject local state mutation with `chain_authoritative`
-- [x] Deterministic seeded demo proves agent blocked -> task bound -> chain paid -> callback -> agent resumed -> restart -> no duplicate callback
-- [x] Gateway remains non-custodial and stores no signing secrets
+- [x] Durable task API, task <-> PDA binding, Solana-authoritative synchronization, restart persistence, and create idempotency.
+- [x] Stable resume event ID / `Idempotency-Key` and persisted retry/backoff.
+- [x] Verified PAID callback semantics with at-least-once delivery until acknowledgement.
+- [x] Gateway remains non-custodial and stores no signing secrets.
+- [x] Deterministic blocked-agent -> paid task -> resume demo.
 
-M7 deterministic proof:
+M7 is merged into `main` at `42231293ed787d367d0db9d4e183daed6e9f979c`.
 
-- workflow: `Gateway check`
-- run: `36211748985`
-- tests: `48/48` passed
-- seeded demo: **PASS**
-- callback count before restart: `1`
-- callback count after restart: `1`
-- deterministic event ID: `4deaf25af94d670a6d27317c6e128e5f8eff0779aabbe41fa22df19a1e3595a5`
+Post-merge Gateway check: `36249541738` — PASS.
 
-Detailed proof: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
+Detailed record: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 
-**Exit condition:** Ground Relay proves the agent-resume product thesis beyond the mobile payment transaction. **Complete.**
+**Exit condition:** agent resumes only after authoritative paid settlement. **Complete.**
 
 ## M8 — Product hardening
 
-- [x] Task inbox backed by the Gateway worker-safe task list, with selected-task PDA reconciliation against Solana
-- [x] Receipt/history screen — dedicated selected-task history distinguishes Solana-confirmed stages from cached observations and receipt-only restored data
-- [~] Wallet/network recovery states — ambiguous MWA transaction returns are reconciled on-chain; Gateway/Solana outages now degrade to read-only cached state
-- [x] App restart/state restoration with versioned AsyncStorage state and no automatic transaction replay
-- [ ] Deep-link or QR handoff where useful
-- [x] Evidence privacy review — raw capture remains local, restart state strips URI/bytes, retention cleanup is explicit and fail-visible; metadata sanitization limits are documented in `docs/security/evidence-privacy.md`
-- [ ] Security review of account constraints, authorities, replay/idempotency, callback/SSRF policy, and payment invariants
-- [ ] Define and implement task/vault rent reclamation policy for terminal tasks
-- [x] CI runs mobile typecheck plus Node regression tests; Anchor/SBF/APK/Gateway workflows remain separate
-- [~] Remove or clearly label all demo-only values and memo prototype behavior — the mobile app no longer starts from `demoTask` and generic payout is fail-closed, but a complete repository-wide sweep remains
+- [x] Gateway-backed worker-safe task inbox with selected-task PDA reconciliation.
+- [x] Dedicated selected-task receipt/history view distinguishing Solana-confirmed, cached-observation, and receipt-only data.
+- [~] Wallet/network recovery states — MWA ambiguity, Gateway outage, and Solana outage handling are implemented; final fresh-device exercise remains.
+- [x] Versioned restart/state restoration with no automatic transaction replay.
+- [ ] Deep-link/QR handoff — optional and deferred unless it materially improves the M8/M9 demo.
+- [x] Evidence privacy policy and local-photo retention cleanup.
+- [~] Security review — callback/SSRF, exact token credit, canonical task PDA enforcement, classic-SPL/no-freeze policy for new escrows, selected-task payout verification, claimed-task timeout recovery, and terminal vault closure are implemented and tested. Final consolidated review plus deployed-program parity remain.
+- [x] Terminal rent policy — zero-balance terminal vaults may be closed and their rent returned only to the original poster; the task PDA is intentionally retained as the authoritative receipt.
+- [x] Generic selected-task payout derivation/verification — canonical vault and worker ATA are derived and verified on-chain before payout is enabled; no historical-fixture fallback.
+- [x] CI coverage includes mobile Node/typecheck, Android build, Gateway checks, Anchor tests, Anchor SBF + IDL build, and IDL-client consistency.
+- [~] Demo-only/legacy cleanup — primary mobile flow no longer depends on `demoTask`, memo receipts, or hardcoded payout context; repository-wide wording/value sweep remains.
+- [ ] Upgrade the devnet program to the current hardened branch. This requires explicit authorization and has not been performed.
+- [ ] Run the full physical Android flow against a new non-canonical devnet task after the authorized upgrade, including restart/recovery and verified payout.
 
-First M8 slice proof:
+### M8 evidence
 
-- root CI run: `36265032725` — **83/83 tests PASS**, typecheck PASS
-- Android standalone APK run: `36265450015` — release APK build PASS, artifact-upload step PASS
+Inbox/restart:
+- root CI `36265032725` — 83/83 tests PASS, typecheck PASS
+- Android `36265450015` — release build PASS, artifact-upload step PASS
 - checkpoint: `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
 
-Receipt/history hardening:
+Receipt/history:
+- root CI `36269010656` — PASS
 
-- RED commit: `2736d00648e62f6c690b84ef48e887f8ff3192fb`
-- model GREEN commit: `954decec6bd3bdab4374ea106483f874192903c8`
-- screen integration commit: `fc69048fbc3e5fcfec5b9da7c66abb4bdc088abf`
-- root CI run: `36269010656` — tests PASS, typecheck PASS
-
-Evidence privacy hardening:
-
-- RED commit: `a6b8649b33258c33272fa4420236ab1f9c425693`
-- GREEN commit: `3d3968755e62f660929ad51540f0b1715d810d72`
-- root CI run: `36270786483` — **95/95 tests PASS**, typecheck PASS
+Evidence privacy:
+- root CI `36270786483` — 95/95 tests PASS, typecheck PASS
+- Android `36270786479` — PASS
 - policy: `docs/security/evidence-privacy.md`
 
-Remaining M8 work includes non-canonical physical-device inbox/restart validation, generic payout derivation proof, callback/SSRF hardening, account/payment security review, rent reclamation policy, and repository-wide demo-only cleanup.
+Callback/SSRF:
+- Gateway verification `36272154186` — PASS
+- fresh Gateway verification after docs `36272343485` — PASS
 
-**Exit condition:** the demo is robust enough to repeat without manual repair. **Not yet complete.**
+Anchor hardening:
+- exact token-credit run `36273332817` — PASS
+- canonical task-PDA run `36274047485` — PASS
+- mint/token-program policy run `36275212868` — PASS
+- claimed-task timeout recovery run `36278762784` — PASS
+- terminal-vault rent reclamation run `36280520588` — PASS
+
+Generic selected-task payout:
+- GREEN commit `f01ae707af39854b44b33e6c63848815aa219635`
+- root CI `36282472180` — PASS
+- Android standalone APK `36282472199` — PASS
+
+Current SBF + IDL proof:
+- workflow trigger commit `cda4603b27f35d435ea5829bb0db0823aac80581`
+- `Anchor SBF + IDL` run `36288500115` — PASS
+- artifact `10921571305` contains `ground_relay.so` (254,144 bytes) and generated `ground_relay.json` (15,712 bytes)
+- generated IDL address remains `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- committed IDL synchronized from that generated artifact in commit `24702a7430ff78ca86a2a3d9bf90199ef11d81a1`
+- `IDL client consistency` run `36289499220` — PASS
+
+**Important:** the SBF/IDL above prove the current branch builds. They do not mean the hardened branch has been deployed. The existing devnet program is still the earlier deployment until an explicitly authorized upgrade is performed.
+
+**Remaining M8 blockers:** controlled devnet upgrade, non-canonical physical-device end-to-end proof, final wallet/network recovery exercise, consolidated security/demo-only sweep, and documentation closeout. Deep-link/QR is not currently considered an M8 blocker.
+
+**Exit condition:** the hardened flow can be repeated on a fresh non-canonical task without manual repair. **Not yet complete.**
 
 ## M9 — Release and hackathon submission
 
-- [ ] Produce final installable APK
-- [ ] Verify fresh-device installation
-- [ ] Run one final end-to-end devnet proof and record every relevant signature/address
-- [ ] Final README and architecture documentation
-- [ ] 90-second demo video
-- [ ] Pitch deck
-- [ ] Submission copy and screenshots
-- [ ] Optional Solana dApp Store readiness work if useful for the hackathon
-- [ ] Submit only after the repository, APK, video, deck, and proof links are final
+- [ ] Produce final installable APK.
+- [ ] Verify fresh-device installation.
+- [ ] Run one final end-to-end devnet proof and record all relevant signatures/addresses.
+- [ ] Final README and architecture documentation.
+- [ ] 90-second demo video.
+- [ ] Pitch deck.
+- [ ] Submission copy and screenshots.
+- [ ] Optional Solana dApp Store readiness work if useful.
+- [ ] Submit only after repository, APK, video, deck, and proof links are final.
 
 **Exit condition:** a reviewer can install or inspect the project, understand it quickly, and independently verify the devnet proof.
 
 ## Project definition of done
 
-Ground Relay is complete for this project when the combined reproducible proof establishes:
+Ground Relay is complete for this project when reproducible proof establishes:
 
 `agent blocked -> funded on-chain task -> worker claims -> camera evidence -> evidence hash -> verifier accepts -> escrow pays worker -> agent resumes`
 
