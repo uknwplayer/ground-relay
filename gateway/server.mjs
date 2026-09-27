@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { sendResumeCallback } from "./callbacks.mjs";
 import { createSolanaChainAdapter } from "./chain.mjs";
+import { resolveListenHost } from "./listen.mjs";
 import { createRelayService, GROUND_RELAY_PROGRAM_ID } from "./service.mjs";
 import { createJsonStore } from "./store.mjs";
 
@@ -151,7 +152,8 @@ const isDirect =
 if (isDirect) {
   const service = await createDefaultRelayServiceFromEnv();
   const port = Number(process.env.PORT ?? 8787);
-  createRelayServer({ service }).listen(port, "127.0.0.1", () => {
-    console.log(`Ground Relay agent gateway listening on http://127.0.0.1:${port}`);
+  const host = resolveListenHost(process.env);
+  createRelayServer({ service }).listen(port, host, () => {
+    console.log(`Ground Relay agent gateway listening on http://${host}:${port}`);
   });
 }
