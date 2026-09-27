@@ -101,13 +101,13 @@ Detailed record: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 - [x] Versioned restart/state restoration with no automatic transaction replay.
 - [ ] Deep-link/QR handoff — optional and deferred unless it materially improves the M8/M9 demo.
 - [x] Evidence privacy policy and local-photo retention cleanup.
-- [~] Security review — callback/SSRF, exact token credit, canonical task PDA enforcement, classic-SPL/no-freeze policy for new escrows, selected-task payout verification, claimed-task timeout recovery, and terminal vault closure are implemented and tested. Final consolidated review plus deployed-program parity remain.
+- [~] Security review — callback/SSRF, exact token credit, canonical task PDA enforcement, classic-SPL/no-freeze policy for new escrows, selected-task payout verification, claimed-task timeout recovery, terminal vault closure, and deployed-program parity are implemented and evidenced. Final consolidated review remains.
 - [x] Terminal rent policy — zero-balance terminal vaults may be closed and their rent returned only to the original poster; the task PDA is intentionally retained as the authoritative receipt.
 - [x] Generic selected-task payout derivation/verification — canonical vault and worker ATA are derived and verified on-chain before payout is enabled; no historical-fixture fallback.
 - [x] CI coverage includes mobile Node/typecheck, Android build, Gateway checks, Anchor tests, Anchor SBF + IDL build, and IDL-client consistency.
 - [~] Demo-only/legacy cleanup — primary mobile flow no longer depends on `demoTask`, memo receipts, or hardcoded payout context; repository-wide wording/value sweep remains.
-- [ ] Upgrade the devnet program to the current hardened branch. This requires explicit authorization and has not been performed.
-- [ ] Run the full physical Android flow against a new non-canonical devnet task after the authorized upgrade, including restart/recovery and verified payout.
+- [x] Current hardened Anchor SBF upgraded onto the existing devnet program identity and independently verified on-chain.
+- [ ] Run the full physical Android flow against a new non-canonical devnet task on the hardened deployment, including restart/recovery and verified payout.
 
 ### M8 evidence
 
@@ -148,9 +148,19 @@ Current SBF + IDL proof:
 - committed IDL synchronized from that generated artifact in commit `24702a7430ff78ca86a2a3d9bf90199ef11d81a1`
 - `IDL client consistency` run `36289499220` — PASS
 
-**Important:** the SBF/IDL above prove the current branch builds. They do not mean the hardened branch has been deployed. The existing devnet program is still the earlier deployment until an explicitly authorized upgrade is performed.
+Hardened devnet deployment:
+- controlled upgrade run `36294101421`, attempt 2 — PASS
+- upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- Program ID remained `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- SBF program data extended from 230,680 to 254,144 bytes during the upgrade
+- canonical ProgramData remained `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
+- independent signer-free preflight run `36296153445` — PASS
+- independently observed last deployed slot `504665480`
+- upgrade authority remained `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
 
-**Remaining M8 blockers:** controlled devnet upgrade, non-canonical physical-device end-to-end proof, final wallet/network recovery exercise, consolidated security/demo-only sweep, and documentation closeout. Deep-link/QR is not currently considered an M8 blocker.
+The current hardened SBF is therefore live on Solana devnet under the existing controlled identity. No mainnet deployment is authorized or implied.
+
+**Remaining M8 blockers:** fresh non-canonical physical-device end-to-end proof, final wallet/network recovery exercise, consolidated security/demo-only sweep, and documentation closeout. Deep-link/QR is not currently considered an M8 blocker.
 
 **Exit condition:** the hardened flow can be repeated on a fresh non-canonical task without manual repair. **Not yet complete.**
 
