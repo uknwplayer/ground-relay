@@ -1,0 +1,38 @@
+name: Hosted M8 Gateway smoke
+
+on:
+  push:
+    branches: ["m8-*"]
+    paths:
+      - ".github/workflows/gateway-public-smoke.yml"
+      - "gateway/data/state.json"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify health and seeded physical task
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://ground-relay-agent-gateway-m8.onrender.com'
+          health="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 "$base/health")"
+          tasks="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 "$base/v1/tasks")"
+          HEALTH="$health" TASKS="$tasks" node - <<'NODE'
+          const health = JSON.parse(process.env.HEALTH);
+          const inbox = JSON.parse(process.env.TASKS);
+          if (health.ok !== true || health.service !== 'ground-relay-agent-gateway') {
+            throw new Error(`Unexpected health response: ${JSON.stringify(health)}`);
+          }
+          const task = inbox.tasks?.find((entry) => entry.id === 'm8-physical-2026-09-27-v1');
+          if (!task) throw new Error('Seeded M8 physical task is missing from hosted inbox');
+          if (task.status !== 'open') throw new Error(`Expected open task, got ${task.status}`);
+          if (task.chain?.taskPda !== 'BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y') {
+            throw new Error(`Unexpected task PDA: ${task.chain?.taskPda}`);
+          }
+          if ('callbackUrl' in task) throw new Error('Worker projection leaked callbackUrl');
+          console.log('Hosted M8 Gateway smoke: PASS');
+          console.log(JSON.stringify({taskId: task.id, status: task.status, taskPda: task.chain.taskPda}));
+          NODE
