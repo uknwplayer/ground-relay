@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "tasks": {
+    "m8-physical-2026-09-27-v1": {
+      "id": "m8-physical-2026-09-27-v1",
+      "title": "M8 physical proof — capture a current scene",
+      "description": "Use Ground Relay on the Android device to capture one clear photo of the current physical scene and complete the hardened devnet flow.",
+      "poster": "6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ",
+      "status": "open",
+      "rewardAtomic": "1000000",
+      "rewardMint": "So11111111111111111111111111111111111111112",
+      "createdAt": "2026-09-27T07:33:29.000Z",
+      "expiresAt": 1793086407,
+      "criteria": [
+        {
+          "id": "photo",
+          "description": "Capture one clear current photo using the in-app camera flow.",
+          "required": true
+        }
+      ],
+      "callbackUrl": "https://example.com/ground-relay/m8-physical-resume",
+      "chain": {
+        "cluster": "devnet",
+        "programId": "6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap",
+        "taskPda": "BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y",
+        "postSignature": "5aVsJ4LZ8aLAHq8z7aFPhGFPuHyji5XHXSPUwTyWcDHRAAej9R81JGzw3hsidwHenesaTC5GypKP1hoB5DJfCSX2",
+        "boundAt": "2026-09-27T07:33:29.000Z",
+        "lastSyncedAt": "2026-09-27T07:33:29.000Z"
+      }
+    }
+  },
+  "idempotency": {
+    "m8-physical-2026-09-27-v1": {
+      "requestHash": "633bdaf2f0cc7784031767979a283b73d11fe5537c95bbd4da72ba829f40ce03",
+      "taskId": "m8-physical-2026-09-27-v1"
+    }
+  }
+}
