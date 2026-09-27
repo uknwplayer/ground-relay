@@ -132,8 +132,8 @@ function RelayScreen() {
     [selectedTask, authoritative, walletAddress, capturedEvidence, payoutContext],
   );
 
-  const displayStatus = authoritative?.status ?? selectedTask?.status;
-  const displayWorker = authoritative?.worker ?? selectedTask?.worker;
+  const displayStatus = authoritative?.status;
+  const displayWorker = authoritative?.worker;
 
   async function persist(
     nextInbox: InboxTaskSummary[] = inbox,
