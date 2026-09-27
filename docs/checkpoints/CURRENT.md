@@ -1,76 +1,48 @@
 # Current checkpoint
 
 **UTC date:** 2026-09-27  
-**Stage:** M9 — release/submission preparation  
+**Stage:** M10 — hackathon submitted / judging  
 **Repository:** `uknwplayer/ground-relay`  
-**Working branch:** `m9-release-submission`  
-**M8 merge commit on `main`:** `ffcb9b7d69e159ec05fd11139b02bbb442099299`
+**Working branch:** `m10-hackathon-submission`  
+**M9 merge commit on `main`:** `d8e059eb0bacff169c017cb9e45b579779cc9ac8`
 
 ## Current state
 
-M0 through M8 are complete. M8 was merged through PR #3 into `main`.
+Ground Relay has been officially submitted to **CLOCK IN — A Solana Mobile Hackathon** through the submission portal.
 
-M9 release provenance, physical clean-install, public screenshot, pitch deck, and narrated 90-second demo master are complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
+M0 through M9 are complete. M9 was merged into `main` through PR #4 before submission.
 
-Ground Relay has therefore proved both the full hardened lifecycle and the release-candidate recovery/read path:
+The submitted package includes:
 
-`agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> agent resumes`
+- public GitHub repository;
+- verified Android APK release candidate;
+- public 90-second narrated demo;
+- public pitch deck;
+- reviewer-first documentation and verification records.
 
-Physical task lifecycle:
+Submission record:
 
-`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
+`docs/checkpoints/archive/2026-09-27-clock-in-submitted.md`
 
-## Controlled devnet identity
+## Submitted links
 
-Program ID:
+Repository:
 
-`6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+`https://github.com/uknwplayer/ground-relay`
 
-ProgramData:
+Demo video:
 
-`GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
+`https://drive.google.com/file/d/1WVVwYWnvEmRWtLEj9Adk2Zwx1angzDFy/view?usp=drivesdk`
 
-Current work remains devnet-only. No mainnet deployment is authorized by this checkpoint.
+Pitch deck:
 
-## Hardened physical proof
+`https://drive.google.com/file/d/1Hh0HLigJ68S5WNVOAX7AljClDH1VIg41/view?usp=drivesdk`
 
-Task ID:
+Android APK:
 
-`m8-physical-2026-09-27-v1`
+`https://drive.google.com/file/d/1H8a0vR3zVxafEXMH2zwVn1aiCWEdSb3P/view?usp=drivesdk`
 
-Task PDA:
-
-`BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y`
-
-Vault PDA:
-
-`F8vdvACWiaFCmh95HLEJGKVbZsXZ9Wvs5cd33qzbZysV`
-
-Worker:
-
-`7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
-
-Reward:
-
-`1,000,000` atomic = `0.001 WSOL`
-
-Evidence SHA-256:
-
-`87c1f0a74d733d3f7e197dc8eb2319bbcd1e55eadef00a4db7c84e64124aeed1`
-
-Payout signature:
-
-`UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
-
-Independent payout audit:
-
-- worker WSOL: `1,000,000 -> 2,000,000` atomic;
-- worker delta: `+1,000,000` atomic;
-- vault: `1,000,000 -> 0` atomic;
-- authoritative task state: `PAID`;
-- verification run `36311952353` — PASS.
-
-## Release candidate — VERIFIED ON DEVICE
+## Release candidate identity
 
 Source commit:
 
@@ -80,10 +52,6 @@ Android build:
 
 `36329825769` — PASS
 
-Artifact:
-
-`ground-relay-standalone-apk` (`10935757058`)
-
 APK SHA-256:
 
 `cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`
@@ -92,117 +60,53 @@ APK size:
 
 `114,098,915` bytes
 
-Worker API embedded in the release candidate:
+Final demo SHA-256:
 
-`https://ground-relay-agent-gateway-m8.onrender.com/v1`
+`e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
 
-Physical clean-install result:
+## Verified physical proof
 
-- fresh Ground Relay installation opened successfully;
-- MWA-compatible worker wallet connected;
-- completed hosted task was discoverable;
-- exact PDA reconciled against Solana devnet;
-- authoritative state displayed as `PAID`;
-- escrow-paid receipt displayed;
-- no historical payment action was reissued.
+Ground Relay physically completed the hardened Android + Solana devnet lifecycle:
 
-Detailed device gate:
+`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
 
-`docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md`
+Task PDA:
 
-## Public screenshot decision
+`BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y`
 
-The earlier clean-install proof screenshot remains private verification evidence.
+Reward:
 
-A separate, deliberate Android screenshot was then captured for public submission use and approved. It shows Ground Relay branding, the truncated worker wallet, `PAID`, reward amount, task title, selected PDA summary, authoritative worker line, `ESCROW PAID · DEVNET`, and restart-safety copy, without raw evidence content or unrelated notifications.
+`1,000,000` atomic = `0.001 WSOL`
 
-Use only this dedicated public capture for submission materials. Cosmetic cropping of Android system chrome is allowed; do not alter app content or fabricate state.
+Payout signature:
 
-Screenshot guidance:
+`UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
 
-`docs/screenshots.md`
+Independent payout audit:
 
-## Pitch deck — COMPLETE
+- worker WSOL: `1,000,000 -> 2,000,000` atomic;
+- vault: `1,000,000 -> 0` atomic;
+- authoritative task state: `PAID`;
+- verification run `36311952353` — PASS.
 
-The final judge-facing deck was generated from `docs/pitch-deck-outline.md` as an 8-slide 16:9 presentation and rendered/checked for overflow.
+## Submission declarations
 
-Binary handoff artifacts produced outside git:
+- prior VC/angel funding: NO
+- built in the last 3 months: YES
+- previous hackathon win with this project: N/A
+- SKR integration: NO
+- submission remains devnet-backed; no mainnet deployment was claimed
 
-- `ground-relay-pitch-deck-m9.pptx`
-- `ground-relay-pitch-deck-m9.pdf`
-
-The repository retains the editable narrative source in `docs/pitch-deck-outline.md`.
-
-## Demo video — FINAL MASTER COMPLETE
-
-A publication-safe Android screen recording was reviewed frame-by-frame. The non-app opening was removed, Android system chrome was cropped from the public mobile clip, and device ambient audio was discarded.
-
-Public mobile clip:
-
-- duration: `37.0s`
-- SHA-256: `ebb80705aee7f9b8c3ce0aa3c25f71117b24306ad8965d22228a4070ebdb2e2c`
-- content: authoritative `PAID`, refresh/reconciliation, receipt history, return to terminal task state
-
-A 16:9 visual cut was assembled from the final deck plus the reviewed Android clip and then mixed with a professional English narration derived from the final Ground Relay demo script.
-
-Final demo master:
-
-- filename: `ground-relay-demo-90s-final.mp4`
-- duration: `90.0s`
-- resolution: `1920x1080`
-- frame rate: `30 fps`
-- video: H.264
-- audio: AAC stereo, `48 kHz`, `192 kbps`
-- narration source duration: `56.935s`
-- device ambient audio: not retained
-- SHA-256: `e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
-
-The approved master was uploaded to Google Drive with stable file ID `1WVVwYWnvEmRWtLEj9Adk2Zwx1angzDFy` and the stable viewer URL is now present in `docs/submission-copy.md`. An external anonymous-access check has not yet succeeded, so public link permission still needs to be confirmed before submission.
-
-## Reviewer/submission package now present
-
-- `docs/release-candidate.md` — APK provenance and hashes
-- `docs/reviewer-verification.md` — independent reviewer checks
-- `docs/architecture.md` — current hardened architecture
-- `docs/product-anatomy.md` — product/actor/trust model
-- `docs/submission-copy.md` — hackathon copy and final demo URL
-- `docs/demo-script.md` — 90-second narration/recording script
-- `docs/screenshots.md` — screenshot plan and privacy rules
-- `docs/pitch-deck-outline.md` — judge-facing deck narrative source
-
-## M8/M9 verification highlights
-
-- M8 final quality sweep `36313234829` — PASS
-- mobile tests `106/106` — PASS
-- Gateway tests `63/63` — PASS
-- TypeScript typecheck — PASS
-- Anchor/Rust workspace tests — PASS
-- repository hygiene audit — PASS
-- post-merge Android release build `36329825769` — PASS
-- physical clean-install/reconciliation — PASS
-- final pitch deck render/overflow check — PASS
-- public mobile recording privacy/timing review — PASS
-- 90-second visual cut duration/render check — PASS
-- final narrated master duration/stream/hash audit — PASS
-- M9 branch vs `main`: documentation/checkpoint changes only — PASS
-
-## Do not repeat
+## Post-submission guardrails
 
 - Do not regenerate the program identity.
-- Do not overwrite deployment signing material.
 - Do not reset, recreate, claim, or repay completed proof tasks.
-- Do not use Gateway/cache state as transaction authorization.
-- Do not commit wallet secrets, credentials, or signing material.
-- Do not make the Agent Gateway a custodial signer.
-- Do not describe callback transport as exactly-once.
+- Do not change the submitted APK, demo, or public proof references during judging unless the rules explicitly allow it and there is a concrete reason.
 - Do not infer mainnet readiness from devnet proof.
+- Prefer stability and traceability over new feature work while judging is active.
 
 ## Next recommended action
 
-The only remaining publication gate is anonymous access to the already-uploaded Drive video.
+Judging/watch phase.
 
-1. set the final video to `Anyone with the link` / viewer in Google Drive;
-2. verify the exact stable link opens without authentication;
-3. review the M9 pull request and its checks;
-4. merge M9 only after the public video link is confirmed;
-5. submit after repository, APK, screenshot, deck, and final video references are stable.
+Monitor the hackathon portal and registered email for requests, judging updates, finalist announcements, or clarification questions. Prepare concise technical answers from the existing reviewer documentation rather than changing the submitted build unless an organizer explicitly requires an update.
