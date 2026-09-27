@@ -8,7 +8,7 @@ Autonomous agents can stall when a workflow needs a human-only, device-local, or
 
 `agent blocked -> funded task -> worker claims -> evidence -> verifier accepts -> escrow pays worker -> agent resumes`
 
-The project has now physically exercised the hardened M8 mobile path on a fresh, non-canonical devnet task, including restart recovery, camera evidence, generic payout derivation, a real network/DNS failure after wallet submission, and final `PAID` reconciliation without replaying the transaction.
+The project has physically exercised the hardened M8 mobile path on a fresh, non-canonical devnet task, including restart recovery, camera evidence, generic payout derivation, a real network/DNS failure after wallet submission, and final `PAID` reconciliation without replaying the transaction.
 
 ## Documentation guide
 
@@ -22,6 +22,7 @@ The project has now physically exercised the hardened M8 mobile path on a fresh,
 | **[Agent Gateway OpenAPI](docs/openapi.yaml)** | Integrators | Machine-readable API contract. |
 | **[Evidence Privacy](docs/security/evidence-privacy.md)** | Security/privacy review | Local photo retention and on-chain evidence-hash policy. |
 | **[Demo Script](docs/demo-script.md)** | Presentation | 90-second product narrative. |
+| **[M8 Completion Record](docs/checkpoints/archive/2026-09-27-m8-complete.md)** | Reviewers | Full hardened physical proof, recovery regression, cleanup, and consolidated closeout evidence. |
 
 ## Proven Solana settlement
 
@@ -52,6 +53,7 @@ Detailed records:
 
 - [`docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`](docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md) — first physical Anchor payout.
 - [`docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`](docs/checkpoints/archive/2026-09-27-m8-physical-paid.md) — fresh hardened M8 task and exact payout proof.
+- [`docs/checkpoints/archive/2026-09-27-m8-complete.md`](docs/checkpoints/archive/2026-09-27-m8-complete.md) — complete M8 closeout record.
 
 ## Mobile hardening
 
@@ -121,6 +123,7 @@ The hardened SBF was upgraded under the original controlled program identity and
 - Post-device-failure authoritative paid check: `36311843338` — PASS.
 - Exact M8 payout audit: `36311952353` — PASS.
 - Mobile DNS-recovery display regression: RED `36312405844`, GREEN `36312595528`.
+- M8 consolidated final quality sweep: `36313234829` — PASS (`106/106` mobile tests, `63/63` Gateway tests, typecheck, deterministic Gateway demo, Anchor workspace tests, and repository hygiene).
 
 ## Run locally
 
@@ -164,7 +167,7 @@ npm run demo
 
 ## Current stage
 
-The fresh hardened M8 physical proof and wallet/network recovery exercise are complete. The branch is in final M8 closeout: consolidated repository hygiene/security verification and documentation are being finalized before moving to M9 release/submission work.
+**M8 is complete on `m8-product-hardening`.** The next stage is M9 release/submission preparation. The immediate human-controlled decision is how to integrate the completed M8 branch into `main`; after that, produce and fresh-device-test the final post-M8 release APK and finish reviewer proof links, video, deck, screenshots, and submission copy.
 
 See [`docs/checkpoints/CURRENT.md`](docs/checkpoints/CURRENT.md) for the exact handoff.
 
