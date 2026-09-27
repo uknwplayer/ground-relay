@@ -44,7 +44,7 @@ jobs:
           cargo install --git https://github.com/otter-sec/anchor avm --force
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
-          avm install 1.2.0
+          avm install 1.2.0 --from-source
           avm use 1.2.0
 
       - name: Install SBF platform tools v1.57
