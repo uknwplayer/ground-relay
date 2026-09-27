@@ -1,129 +1,151 @@
 # Ground Relay
 
-Ground Relay is a mobile-first human escalation network for autonomous agents, built for **CLOCK IN — A Solana Mobile Hackathon**.
+**Human execution for the one step an autonomous agent cannot do.**
 
-Autonomous agents can stall when a workflow needs a human-only, device-local, or real-world action. Ground Relay turns that blocker into a funded microtask, lets an Android worker claim it and capture evidence, settles the reward through a non-custodial Solana escrow, and lets an Agent Gateway resume the originating workflow only after authoritative settlement.
+Ground Relay is a mobile-first human escalation network built for **CLOCK IN — A Solana Mobile Hackathon**. When an autonomous workflow hits a step that requires a person, a phone, or the physical world, Ground Relay turns that blocker into a funded task, lets an Android worker complete it, settles the reward through Solana escrow, and resumes the originating workflow only after authoritative settlement.
 
-## Core loop
+## The loop
 
 `agent blocked -> funded task -> worker claims -> evidence -> verifier accepts -> escrow pays worker -> agent resumes`
 
-The project has physically exercised the hardened M8 mobile path on a fresh, non-canonical devnet task, including restart recovery, camera evidence, generic payout derivation, a real network/DNS failure after wallet submission, and final `PAID` reconciliation without replaying the transaction.
-
-## Documentation guide
-
-| Document | Best for | What it explains |
-| --- | --- | --- |
-| **[Product Anatomy & Operating Model](docs/product-anatomy.md)** | Evaluators, judges, new contributors | End-to-end purpose, actors, architecture, money/evidence flow, trust boundaries, and real-world use cases. |
-| **[Execution Roadmap](docs/roadmap.md)** | Evaluators and contributors | Milestones from prototype through settlement, agent resume, hardening, release, and submission. |
-| **[Current Checkpoint](docs/checkpoints/CURRENT.md)** | Anyone continuing the work | Canonical handoff, verified proofs, current stage, immutable IDs/signatures, constraints, and next action. |
-| **[Architecture](docs/architecture.md)** | Technical reviewers | Mobile app, Agent Gateway, Solana layer, state flow, and trust boundaries. |
-| **[Escrow Protocol](docs/escrow-protocol.md)** | Protocol reviewers | Task/vault PDAs, Anchor state machine, settlement rules, and escrow security properties. |
-| **[Agent Gateway OpenAPI](docs/openapi.yaml)** | Integrators | Machine-readable API contract. |
-| **[Evidence Privacy](docs/security/evidence-privacy.md)** | Security/privacy review | Local photo retention and on-chain evidence-hash policy. |
-| **[Demo Script](docs/demo-script.md)** | Presentation | 90-second product narrative. |
-| **[M8 Completion Record](docs/checkpoints/archive/2026-09-27-m8-complete.md)** | Reviewers | Full hardened physical proof, recovery regression, cleanup, and consolidated closeout evidence. |
-
-## Proven Solana settlement
-
-Ground Relay has completed the full physical lifecycle on Android against the controlled devnet program:
+The hardened devnet lifecycle has been physically completed on Android:
 
 `OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
+
+## Reviewer start here
+
+| Goal | Document |
+| --- | --- |
+| Verify the proof quickly | **[Reviewer Verification](docs/reviewer-verification.md)** |
+| Understand the system | **[Architecture](docs/architecture.md)** |
+| Understand actors, trust boundaries, and use cases | **[Product Anatomy](docs/product-anatomy.md)** |
+| Inspect the exact release candidate | **[Release Candidate](docs/release-candidate.md)** |
+| See the current project handoff | **[Current Checkpoint](docs/checkpoints/CURRENT.md)** |
+| Read the hackathon submission copy | **[Submission Copy](docs/submission-copy.md)** |
+| Follow the 90-second demo | **[Demo Script](docs/demo-script.md)** |
+| Review the pitch structure | **[Pitch Deck Outline](docs/pitch-deck-outline.md)** |
+| Review screenshot guidance | **[Screenshot Plan](docs/screenshots.md)** |
+
+## What the mobile app does
+
+The Android worker app:
+
+- discovers tasks through the hosted worker inbox;
+- connects an MWA-compatible wallet;
+- selects and reconciles the exact task PDA against Solana;
+- claims funded work;
+- captures evidence with the phone camera;
+- keeps raw photo bytes off-chain and submits a task-bound SHA-256 digest;
+- shows authoritative lifecycle receipts;
+- derives and verifies payout accounts before payment actions unlock;
+- restores only safe context after restart and never automatically replays a transaction;
+- fails closed if the selected on-chain task cannot be verified.
+
+## Architecture
+
+Ground Relay has three cooperating pieces:
+
+### Android worker app
+
+Mobile Wallet Adapter, inbox, task selection, camera evidence, receipt history, restart recovery, and payout verification.
+
+### Agent Gateway
+
+Durable task discovery, task/PDA binding, Solana synchronization, retryable resume events, and agent handoff. The Gateway does not sign worker settlement transactions.
+
+### Anchor escrow program
+
+Funded task state machine, canonical task/vault PDAs, lifecycle guards, exact token-account checks, recovery paths, payout/refund handling, and durable terminal receipts.
+
+See **[docs/architecture.md](docs/architecture.md)** for the full state and trust model.
+
+## Verified devnet settlement
 
 Program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-The first historical physical proof remains preserved as audit evidence and is never reused as a fresh task. The hardened M8 proof used a separate task:
+Fresh hardened task PDA:
 
-- task PDA: `BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y`
-- vault PDA: `F8vdvACWiaFCmh95HLEJGKVbZsXZ9Wvs5cd33qzbZysV`
-- worker: `7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
-- reward: `1,000,000` atomic = `0.001 WSOL`
-- evidence SHA-256: `87c1f0a74d733d3f7e197dc8eb2319bbcd1e55eadef00a4db7c84e64124aeed1`
-- acceptance signature: `2e9xNS5DxU1a6i6cXYpWMHvWqsyGHkvLZtpUM74wmQQJh581BzJSd6fLcgm2yL7accFb3uap8mjbCSE8AfPpRC1C`
-- payout signature: `UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
-- payout slot: `504746194`
-- worker WSOL ATA delta: `+1,000,000` atomic
-- vault delta: `-1,000,000` atomic, final amount `0`
+`BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y`
 
-Independent payout verification run `36311952353` confirmed the exact token-balance deltas and authoritative `PAID` state.
+Reward:
 
-Detailed records:
+`1,000,000` atomic = `0.001 WSOL`
 
-- [`docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`](docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md) — first physical Anchor payout.
-- [`docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`](docs/checkpoints/archive/2026-09-27-m8-physical-paid.md) — fresh hardened M8 task and exact payout proof.
-- [`docs/checkpoints/archive/2026-09-27-m8-complete.md`](docs/checkpoints/archive/2026-09-27-m8-complete.md) — complete M8 closeout record.
+Payout signature:
 
-## Mobile hardening
+`UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
 
-The Android app now:
+Independent payout verification confirmed:
 
-- discovers tasks through the worker-safe Gateway inbox;
-- selects and reconciles the exact task PDA against Solana before state-changing actions are enabled;
-- persists versioned safe restart context without automatically replaying transactions;
-- keeps raw evidence photos local and persists only safe metadata/receipts;
-- derives the canonical task vault and worker classic-SPL ATA for the selected task;
-- verifies token-program ownership, mint, vault authority, worker authority, and reward funding before enabling payout;
-- reconciles ambiguous Mobile Wallet Adapter returns against authoritative Solana state;
-- fails closed when Gateway or Solana state cannot be verified.
+- worker WSOL: `1,000,000 -> 2,000,000` atomic;
+- worker delta: `+1,000,000` atomic;
+- vault: `1,000,000 -> 0` atomic;
+- final authoritative task state: `PAID`.
 
-Physical M8 testing exposed a real device DNS failure immediately after a successful payout transaction. The transaction had already reached Solana, while the post-wallet RPC read failed. The app correctly prevented replay; a follow-up regression test also removed the misleading fallback that could display stale Gateway `OPEN` state while authoritative RPC was unavailable.
+Verification run: `36311952353` — PASS.
+
+Detailed proof:
+
+- [Fresh M8 physical payout](docs/checkpoints/archive/2026-09-27-m8-physical-paid.md)
+- [M8 completion record](docs/checkpoints/archive/2026-09-27-m8-complete.md)
+
+## Real mobile failure recovery
+
+During the physical payout, the phone lost DNS/RPC access after the wallet transaction had already reached Solana.
+
+Ground Relay did not replay the payment. Independent chain verification found the task `PAID`, and the Android UI later reconciled to the same terminal state after network recovery. A regression test then removed the misleading fallback that could display stale inbox status while authoritative RPC state was unavailable.
 
 Regression evidence:
 
-- RED run `36312405844` reproduced the stale-authority presentation;
-- GREEN run `36312595528` passed mobile tests and TypeScript typecheck after the minimal fix.
+- RED: `36312405844`
+- GREEN: `36312595528`
 
-## Agent Gateway
+This is a core design rule: **when mobile return paths are ambiguous, chain state wins.**
 
-The Gateway is non-custodial: it stores task/callback state but does not hold worker or poster signing keys.
+## M9 release candidate
 
-It provides:
+M8 was integrated into `main` through PR #3.
 
-- durable task persistence and task ↔ PDA binding;
-- worker-safe inbox projection;
-- authoritative Solana synchronization;
-- create idempotency;
-- stable paid-resume event identity;
-- persisted callback retry/backoff and restart recovery;
-- at-least-once HTTP delivery until acknowledgement;
-- callback URL validation with DNS resolution, public-address enforcement, connection pinning, TLS hostname preservation, bounded redirects, and redirect revalidation.
+Source commit:
 
-The project deliberately does **not** claim exactly-once HTTP transport.
+`ffcb9b7d69e159ec05fd11139b02bbb442099299`
 
-Hosted M8 Gateway smoke run `36303711875` passed against the public Render deployment. The persisted proof seed is terminalized as `PAID`, so a cold start cannot re-advertise the completed physical task as fresh `OPEN` work.
+Android release build:
 
-## Anchor hardening
+`36329825769` — PASS
 
-The deployed devnet program includes:
+Artifact:
 
-- exact credited-token checks on funding, payout, and refund;
-- canonical task-PDA constraints on transitions;
-- classic SPL Token + no-freeze-authority policy for new escrows;
-- delivery deadline enforcement;
-- poster recovery of abandoned claimed tasks only after expiry;
-- zero-balance terminal vault closure with rent returned only to the original poster;
-- retained task PDA as the durable authoritative receipt.
+`ground-relay-standalone-apk` (`10935757058`)
 
-The hardened SBF was upgraded under the original controlled program identity and independently inspected. The program ID and ProgramData identity were not replaced, and no mainnet deployment is authorized by these devnet proofs.
+APK SHA-256:
+
+`cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`
+
+The exact APK passed a clean physical Android installation, wallet connection, hosted-task discovery, exact-PDA reconciliation, and terminal `PAID` readback without reissuing any historical transaction.
+
+Device verification record:
+
+[docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md](docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md)
 
 ## Verification highlights
 
-- M6 lifecycle/guard run: `36208008464` — PASS.
-- M7 post-merge Gateway run: `36249541738` — PASS.
-- Anchor SBF + IDL run: `36288500115` — PASS.
-- IDL client consistency: `36289499220` — PASS.
-- Hardened devnet deploy: `36294101421` attempt 2 — PASS.
-- Independent post-deploy preflight: `36296153445` attempt 2 — PASS.
-- Hosted Gateway smoke: `36303711875` — PASS.
-- Fresh M8 task creation/binding: `36303227689` — PASS.
-- M8 Android hosted-Gateway APK: `36303092998` — PASS.
-- Poster acceptance: `36311385406` — PASS.
-- Post-device-failure authoritative paid check: `36311843338` — PASS.
-- Exact M8 payout audit: `36311952353` — PASS.
-- Mobile DNS-recovery display regression: RED `36312405844`, GREEN `36312595528`.
-- M8 consolidated final quality sweep: `36313234829` — PASS (`106/106` mobile tests, `63/63` Gateway tests, typecheck, deterministic Gateway demo, Anchor workspace tests, and repository hygiene).
+- M6 lifecycle guards `36208008464` — PASS
+- M7 post-merge Gateway `36249541738` — PASS
+- Anchor SBF + IDL `36288500115` — PASS
+- IDL client consistency `36289499220` — PASS
+- hardened devnet upgrade `36294101421`, attempt 2 — PASS
+- independent post-deploy preflight `36296153445`, attempt 2 — PASS
+- hosted Gateway smoke `36303711875` — PASS
+- fresh task creation/binding `36303227689` — PASS
+- exact payout audit `36311952353` — PASS
+- M8 consolidated quality sweep `36313234829` — PASS
+- post-merge Android release `36329825769` — PASS
+- physical clean-install/reconciliation — PASS
+
+M8 final sweep included `106/106` mobile tests, `63/63` Gateway tests, TypeScript typecheck, deterministic Gateway demo, Anchor workspace tests, and repository hygiene.
 
 ## Run locally
 
@@ -136,15 +158,13 @@ npm run typecheck
 npm run android
 ```
 
-Configure the Gateway worker API:
+Configure the worker API when building locally:
 
 ```bash
 EXPO_PUBLIC_GROUND_RELAY_GATEWAY_URL=http://<gateway-host>:8787/v1
 ```
 
-Use an MWA-compatible wallet for wallet flows.
-
-Run the Gateway verification locally:
+Run Gateway checks:
 
 ```bash
 cd gateway
@@ -153,23 +173,23 @@ npm test
 npm run demo
 ```
 
-## Security boundaries
+## Project boundaries
 
-- Development and current proofs target Solana devnet.
-- Never commit private keys, seed phrases, wallet secrets, deployment keypairs, or auth tokens.
-- The Gateway is non-custodial and does not sign settlement transactions.
-- Solana is authoritative after a task is bound.
-- Gateway/cache state is discovery and recovery context, never transaction authorization.
-- Evidence photo bytes remain off-chain; protocol state stores an evidence hash.
-- State-changing mobile actions remain locked when the exact selected PDA cannot be reconciled.
-- Completed paid fixtures are historical proof and must never be reset or presented as fresh tasks.
-- No mainnet deployment is authorized from this repository checkpoint.
+- Current deployment and proof target Solana devnet.
+- Solana is authoritative after task binding.
+- Gateway/cache state is discovery and recovery context, not transaction authorization.
+- Raw evidence photo bytes remain off-chain.
+- The Gateway is non-custodial.
+- Completed proof tasks are historical receipts and must not be reset or presented as fresh work.
+- No mainnet deployment is implied or authorized by the current proof.
 
 ## Current stage
 
-**M8 is complete on `m8-product-hardening`.** The next stage is M9 release/submission preparation. The immediate human-controlled decision is how to integrate the completed M8 branch into `main`; after that, produce and fresh-device-test the final post-M8 release APK and finish reviewer proof links, video, deck, screenshots, and submission copy.
+**M9 — release/submission preparation.**
 
-See [`docs/checkpoints/CURRENT.md`](docs/checkpoints/CURRENT.md) for the exact handoff.
+Release provenance and physical clean-install verification are complete. Remaining work is presentation-layer only: publication-safe screenshots, final pitch deck, 90-second demo video, final submission audit, and submission.
+
+See **[docs/checkpoints/CURRENT.md](docs/checkpoints/CURRENT.md)** for the exact handoff.
 
 ## License
 
