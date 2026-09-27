@@ -44,8 +44,11 @@ import type {
 import {
   fetchGroundRelayTask,
   getClaimTaskInstruction,
+  getReleasePaymentInstruction,
   getSubmitEvidenceInstruction,
+  type PayoutExecutionContext,
 } from "./src/solana/ground-relay";
+import { resolveVerifiedPayoutContext } from "./src/solana/payout-context";
 import {
   didExpectedTransitionLand,
   type RelayTransitionOperation,
@@ -94,6 +97,8 @@ function RelayScreen() {
   const [authoritative, setAuthoritative] = useState<ReconciledTaskState>();
   const [capturedEvidence, setCapturedEvidence] =
     useState<CapturedPhotoEvidence>();
+  const [payoutContext, setPayoutContext] = useState<PayoutExecutionContext>();
+  const [payoutError, setPayoutError] = useState<string>();
   const [inboxSource, setInboxSource] =
     useState<"loading" | "cached" | "fresh" | "unavailable">("loading");
   const [gatewayError, setGatewayError] = useState<string>();
@@ -116,7 +121,7 @@ function RelayScreen() {
             authoritative,
             walletAddress,
             hasCapturedEvidence: Boolean(capturedEvidence),
-            payoutContext: undefined,
+            payoutContext,
           })
         : {
             canClaim: false,
@@ -124,7 +129,7 @@ function RelayScreen() {
             canSubmit: false,
             canRelease: false,
           },
-    [selectedTask, authoritative, walletAddress, capturedEvidence],
+    [selectedTask, authoritative, walletAddress, capturedEvidence, payoutContext],
   );
 
   const displayStatus = authoritative?.status ?? selectedTask?.status;
@@ -290,6 +295,51 @@ function RelayScreen() {
     selectedTask?.rewardAtomic,
     selectedTask?.rewardMint,
     selectedTask?.status,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPayoutContext(undefined);
+    setPayoutError(undefined);
+
+    if (
+      walletAddress &&
+      authoritative?.status === "accepted" &&
+      authoritative.worker === walletAddress
+    ) {
+      void resolveVerifiedPayoutContext(client.rpc as never, {
+        taskPda: authoritative.taskPda,
+        worker: walletAddress,
+        rewardMint: authoritative.rewardMint,
+        rewardAtomic: authoritative.rewardAtomic,
+      })
+        .then((context) => {
+          if (cancelled) return;
+          setPayoutContext(context);
+          setPayoutError(undefined);
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setPayoutContext(undefined);
+          setPayoutError(
+            error instanceof Error
+              ? error.message
+              : "Payout account verification failed",
+          );
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    client,
+    walletAddress,
+    authoritative?.taskPda,
+    authoritative?.worker,
+    authoritative?.rewardMint,
+    authoritative?.rewardAtomic,
+    authoritative?.status,
   ]);
 
   async function chooseTask(task: InboxTaskSummary) {
@@ -488,6 +538,40 @@ function RelayScreen() {
       const message =
         error instanceof Error ? error.message : "Evidence submission failed";
       Alert.alert("Delivery failed", message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function releasePayment() {
+    if (
+      !walletAddress ||
+      !selectedTask ||
+      !authoritative ||
+      !payoutContext ||
+      !eligibility.canRelease
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const nextSignature = await sendTransactions([
+        getReleasePaymentInstruction(walletAddress, payoutContext),
+      ]);
+      const signature = nextSignature.toString();
+      await updateSession({ payoutSignature: signature });
+      await waitForConfirmation(signature);
+      if (!(await reconcileExpectedTransition("releasePayment"))) {
+        throw new Error(
+          "Payout transaction confirmed, but the selected task is not paid on chain.",
+        );
+      }
+    } catch (error) {
+      if (await reconcileExpectedTransition("releasePayment")) return;
+      const message =
+        error instanceof Error ? error.message : "Escrow payout failed";
+      Alert.alert("Payout failed", message);
     } finally {
       setBusy(false);
     }
@@ -781,16 +865,29 @@ function RelayScreen() {
             <View style={styles.receipt}>
               <Text style={styles.label}>DELIVERY ACCEPTED · DEVNET</Text>
               <Text style={styles.receiptText}>
-                Generic payout remains locked until vault and worker-token account
-                derivation is independently verified.
+                {payoutContext
+                  ? `Verified vault ${shortAddress(payoutContext.vaultPda)} · worker ATA ${shortAddress(payoutContext.workerTokenAddress)}`
+                  : payoutError
+                    ? `Payout locked: ${payoutError}`
+                    : "Verifying canonical payout accounts on Solana devnet…"}
               </Text>
               <Pressable
-                style={[styles.primaryButton, styles.disabled]}
-                disabled
+                style={[
+                  styles.primaryButton,
+                  (!eligibility.canRelease || busy) && styles.disabled,
+                ]}
+                disabled={!eligibility.canRelease || busy}
+                onPress={releasePayment}
               >
-                <Text style={styles.primaryButtonText}>
-                  Payout verification pending
-                </Text>
+                {busy ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {payoutContext
+                      ? "Release verified escrow payout"
+                      : "Verifying payout accounts…"}
+                  </Text>
+                )}
               </Pressable>
             </View>
           ) : null}
