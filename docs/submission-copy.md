@@ -73,6 +73,18 @@ APK SHA-256:
 
 The exact APK passed a clean physical Android installation and read-only reconciliation of the completed proof task to `PAID`.
 
+## Demo video
+
+Final narrated 90-second demo:
+
+`https://drive.google.com/file/d/1WVVwYWnvEmRWtLEj9Adk2Zwx1angzDFy/view?usp=drivesdk`
+
+Demo SHA-256:
+
+`e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
+
+The final master is 90.0 seconds, 1920x1080, H.264 video with AAC stereo narration, and uses only the approved publication-safe Android footage.
+
 ## Suggested tags
 
 Solana Mobile, Android, Mobile Wallet Adapter, Anchor, SPL Token, escrow, autonomous agents, human-in-the-loop, physical-world tasks, agent infrastructure
