@@ -10,7 +10,7 @@
 
 M0 through M8 are complete. M8 was merged through PR #3 into `main`.
 
-M9 release provenance and the physical clean-install gate are complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
+M9 release provenance, physical clean-install, public screenshot, pitch deck, and narrated 90-second demo master are complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
 
 Ground Relay has therefore proved both the full hardened lifecycle and the release-candidate recovery/read path:
 
@@ -133,7 +133,7 @@ Binary handoff artifacts produced outside git:
 
 The repository retains the editable narrative source in `docs/pitch-deck-outline.md`.
 
-## Demo video — VISUAL CUT COMPLETE
+## Demo video — FINAL MASTER COMPLETE
 
 A publication-safe Android screen recording was reviewed frame-by-frame. The non-app opening was removed, Android system chrome was cropped from the public mobile clip, and device ambient audio was discarded.
 
@@ -143,15 +143,23 @@ Public mobile clip:
 - SHA-256: `ebb80705aee7f9b8c3ce0aa3c25f71117b24306ad8965d22228a4070ebdb2e2c`
 - content: authoritative `PAID`, refresh/reconciliation, receipt history, return to terminal task state
 
-A 16:9 visual cut was then assembled from the final deck plus the reviewed Android clip:
+A 16:9 visual cut was assembled from the final deck plus the reviewed Android clip and then mixed with a professional English narration derived from the final Ground Relay demo script.
 
+Final demo master:
+
+- filename: `ground-relay-demo-90s-final.mp4`
 - duration: `90.0s`
 - resolution: `1920x1080`
+- frame rate: `30 fps`
 - video: H.264
-- audio track: silent AAC placeholder; no device ambient audio retained
-- SHA-256: `3ecf85d766edec9df343ab48b7b448254b9d78ed0ca5c0be69c1141bb0e2f825`
+- audio: AAC stereo, `48 kHz`, `192 kbps`
+- narration source duration: `56.935s`
+- device ambient audio: not retained
+- SHA-256: `e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
 
-The visual cut is ready for narration/voiceover. `docs/demo-script.md` remains the authoritative 90-second narration source.
+Narration was distributed across six timed blocks so the spoken story aligns with the visual sequence: problem, funded task, worker/evidence, payout, failure recovery, and closing statement. The final voice ends before the closing frame and the master remains exactly 90 seconds.
+
+The video is complete locally but is not yet publicly hosted. Publishing it to a public URL remains a separate approval/publication step.
 
 ## Reviewer/submission package now present
 
@@ -177,6 +185,7 @@ The visual cut is ready for narration/voiceover. `docs/demo-script.md` remains t
 - final pitch deck render/overflow check — PASS
 - public mobile recording privacy/timing review — PASS
 - 90-second visual cut duration/render check — PASS
+- final narrated master duration/stream/hash audit — PASS
 
 ## Do not repeat
 
@@ -191,12 +200,11 @@ The visual cut is ready for narration/voiceover. `docs/demo-script.md` remains t
 
 ## Next recommended action
 
-The remaining media gate is narration/voiceover for the already-complete 90-second visual cut.
+The remaining submission gate is publication and final link integration.
 
-After narration is available:
-
-1. mix the narration into the 90-second visual cut and verify final loudness/timing;
-2. publish/host the final demo and place its URL into the submission copy;
-3. run one final documentation/link/release audit;
-4. open the M9 PR for review;
-5. submit only after repository, APK, screenshot, deck, and final video references are stable.
+1. review the final 90-second master once as a viewer;
+2. publish/host the approved final demo and obtain a stable public URL;
+3. place that URL into `docs/submission-copy.md`;
+4. run one final documentation/link/release audit;
+5. open the M9 PR for review;
+6. submit only after repository, APK, screenshot, deck, and final video references are stable.
