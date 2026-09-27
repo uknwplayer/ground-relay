@@ -86,7 +86,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/solana/ground-relay.ts test/selected-task-solana.test.mjs gateway/data/state.json
+          git add src/solana/ground-relay.ts test/selected-task-solana.test.mjs
+          git add -f gateway/data/state.json
           git rm src/demo/task.ts
           git commit -m "chore: retire historical runtime fixture state"
           git push origin HEAD:m8-product-hardening
