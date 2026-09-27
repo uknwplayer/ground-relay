@@ -16,9 +16,9 @@ Target loop:
 
 `agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> verified agent resume callback`
 
-M5, M6, and M7 are complete. M7 is merged into `main`. M8 is active and now includes the multi-task inbox/restart flow, history, evidence privacy, callback/SSRF hardening, Anchor payment/account hardening, generic selected-task payout verification, claimed-task timeout recovery, and terminal vault rent reclamation.
+M5, M6, and M7 are complete. M7 is merged into `main`. M8 is active and now includes the multi-task inbox/restart flow, history, evidence privacy, callback/SSRF hardening, Anchor payment/account hardening, generic selected-task payout verification, claimed-task timeout recovery, terminal vault rent reclamation, current SBF/IDL consistency, and the hardened Anchor deployment on devnet.
 
-M8 is **not complete yet** because the hardened Anchor branch has not been upgraded onto devnet and the generic flow still needs a fresh physical non-canonical end-to-end proof.
+M8 is **not complete yet** because the generic flow still needs a fresh physical non-canonical end-to-end proof on the hardened deployment, followed by the final recovery/security/demo sweep.
 
 ## Canonical devnet identity
 
@@ -29,6 +29,10 @@ Program ID:
 Controlled upgrade/deployer/poster:
 
 `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
+
+Canonical ProgramData:
+
+`GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
 
 Do not regenerate the program identity or replace deployment Secrets.
 
@@ -147,7 +151,7 @@ If the worker ATA does not exist, payout remains blocked; the app does not silen
 
 ## Current SBF + IDL proof
 
-The M8 branch now runs Anchor SBF/IDL and IDL-client workflows directly on `m8-*` pushes.
+The M8 branch runs Anchor SBF/IDL and IDL-client workflows directly on `m8-*` pushes.
 
 - Anchor workflow trigger commit: `cda4603b27f35d435ea5829bb0db0823aac80581`
 - IDL-client workflow trigger commit: `dec6cfa7d0d7630bc32d7db380a6e5f6822846f9`
@@ -159,16 +163,45 @@ The M8 branch now runs Anchor SBF/IDL and IDL-client workflows directly on `m8-*
 - committed IDL synchronized from the generated artifact: `24702a7430ff78ca86a2a3d9bf90199ef11d81a1`
 - `IDL client consistency` run after synchronization: `36289499220` — PASS
 
-This proves the current branch builds and its committed client-facing IDL is consistent. It does **not** prove the hardened program is deployed: the existing devnet deployment is still the earlier program version.
+This proves the branch artifacts and client-facing IDL are consistent. The same hardened SBF was subsequently upgraded onto the controlled devnet program identity and independently inspected on-chain, as recorded below.
+
+## Hardened devnet deployment proof
+
+The controlled M8 Anchor upgrade is complete on Solana devnet. No program identity, ProgramData address, deployment Secrets, or mainnet state were changed.
+
+Upgrade evidence:
+
+- deploy workflow run: `36294101421`, attempt 2 — PASS
+- deployed branch commit: `2769fb6cbc13800a653a579e77ef630c2832f52d`
+- upgrade transaction signature: `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- Program ID after upgrade: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- program data auto-extension during upgrade: `230,680 -> 254,144` bytes
+- metadata account remained: `7GuXcvE5MrKneC5vSAcyZZHmQ8k1Pm7NhNHTGDTBmqWp`
+- deploy workflow post-check: account present, BPFUpgradeableLoader-owned, executable — PASS
+- key-material cleanup step — PASS
+
+Independent signer-free post-upgrade verification was strengthened in commit `b4d8fd4238865d66922fd24c96ea1a80543b2247`, and enabled on `m8-*` in commit `58857d083cb20111e48ee720b22fa7d626c0507c`.
+
+Fresh independent preflight:
+
+- run `36296153445` — PASS
+- Program ID: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- owner: `BPFLoaderUpgradeab1e11111111111111111111111`
+- executable: `True`
+- canonical ProgramData: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
+- ProgramData data length: `254,189` bytes (`45` loader metadata + `254,144` SBF)
+- last deployed slot: `504665480`
+- upgrade authority: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
+- confirmed RPC context slot at inspection: `504666436`
+
+This independently establishes that the hardened M8 SBF is live on devnet under the original controlled identity and authority. It does not imply or authorize any mainnet deployment.
 
 ## Remaining M8 work
 
-1. Obtain explicit authorization for one controlled devnet upgrade of the existing program identity; no mainnet action.
-2. Upgrade the existing devnet program to the current hardened SBF without regenerating identity or Secrets.
-3. Create/use a fresh non-canonical devnet task and run the physical Android flow: inbox -> select -> claim -> restart/recovery -> evidence -> accept -> verified payout -> paid reconciliation.
-4. Exercise final wallet/network recovery cases on the physical device.
-5. Perform a repository-wide demo-only/legacy wording/value sweep and a final consolidated security review.
-6. Close M8 documentation/checkpoints after the physical proof.
+1. Create/use a fresh non-canonical devnet task and run the physical Android flow on the hardened deployment: inbox -> select -> claim -> restart/recovery -> evidence -> accept -> verified payout -> paid reconciliation.
+2. Exercise final wallet/network recovery cases on the physical device.
+3. Perform a repository-wide demo-only/legacy wording/value sweep and a final consolidated security review.
+4. Close M8 documentation/checkpoints after the physical proof.
 
 Deep-link/QR handoff is optional and is not currently an M8 blocker; it can move to M9 unless it materially improves the final demo.
 
@@ -198,8 +231,8 @@ Deep-link/QR handoff is optional and is not currently an M8 blocker; it can move
 - Do **not** make the Agent Gateway a custodial signer.
 - Do **not** describe HTTP callback delivery as exactly-once transport.
 - Do **not** authorize mainnet deployment from this checkpoint.
-- Do **not** treat branch build success as proof that the hardened program is already deployed.
+- Do **not** treat a future branch build alone as deployment proof; require an upgrade transaction plus an independent signer-free on-chain verification as done here.
 
 ## Next recommended action
 
-Request explicit approval for the controlled devnet program upgrade. After that upgrade is independently verified, perform the fresh non-canonical physical M8 end-to-end proof before declaring M8 complete.
+Run the fresh non-canonical physical M8 end-to-end proof on the hardened devnet deployment. It must cover task discovery/selection, claim, restart/recovery, evidence submission, acceptance, generic verified payout, and final PAID reconciliation before M8 is declared complete.
