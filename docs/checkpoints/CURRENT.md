@@ -126,25 +126,32 @@ Screenshot guidance:
 
 The final judge-facing deck was generated from `docs/pitch-deck-outline.md` as an 8-slide 16:9 presentation and rendered/checked for overflow.
 
-Deck flow:
-
-1. Ground Relay / value proposition
-2. human-only blocker problem
-3. funded task loop
-4. why Solana Mobile
-5. three-component architecture and trust boundary
-6. real Android physical proof and exact payout numbers
-7. real DNS/RPC ambiguity recovery proof
-8. concrete use cases and closing statement
-
-The public Android `PAID` screenshot is used as the physical proof visual. The deck labels all current chain evidence as devnet proof and does not claim mainnet readiness.
-
 Binary handoff artifacts produced outside git:
 
 - `ground-relay-pitch-deck-m9.pptx`
 - `ground-relay-pitch-deck-m9.pdf`
 
 The repository retains the editable narrative source in `docs/pitch-deck-outline.md`.
+
+## Demo video — VISUAL CUT COMPLETE
+
+A publication-safe Android screen recording was reviewed frame-by-frame. The non-app opening was removed, Android system chrome was cropped from the public mobile clip, and device ambient audio was discarded.
+
+Public mobile clip:
+
+- duration: `37.0s`
+- SHA-256: `ebb80705aee7f9b8c3ce0aa3c25f71117b24306ad8965d22228a4070ebdb2e2c`
+- content: authoritative `PAID`, refresh/reconciliation, receipt history, return to terminal task state
+
+A 16:9 visual cut was then assembled from the final deck plus the reviewed Android clip:
+
+- duration: `90.0s`
+- resolution: `1920x1080`
+- video: H.264
+- audio track: silent AAC placeholder; no device ambient audio retained
+- SHA-256: `3ecf85d766edec9df343ab48b7b448254b9d78ed0ca5c0be69c1141bb0e2f825`
+
+The visual cut is ready for narration/voiceover. `docs/demo-script.md` remains the authoritative 90-second narration source.
 
 ## Reviewer/submission package now present
 
@@ -153,7 +160,7 @@ The repository retains the editable narrative source in `docs/pitch-deck-outline
 - `docs/architecture.md` — current hardened architecture
 - `docs/product-anatomy.md` — product/actor/trust model
 - `docs/submission-copy.md` — hackathon copy
-- `docs/demo-script.md` — 90-second recording script
+- `docs/demo-script.md` — 90-second narration/recording script
 - `docs/screenshots.md` — screenshot plan and privacy rules
 - `docs/pitch-deck-outline.md` — judge-facing deck narrative source
 
@@ -168,6 +175,8 @@ The repository retains the editable narrative source in `docs/pitch-deck-outline
 - post-merge Android release build `36329825769` — PASS
 - physical clean-install/reconciliation — PASS
 - final pitch deck render/overflow check — PASS
+- public mobile recording privacy/timing review — PASS
+- 90-second visual cut duration/render check — PASS
 
 ## Do not repeat
 
@@ -182,12 +191,12 @@ The repository retains the editable narrative source in `docs/pitch-deck-outline
 
 ## Next recommended action
 
-The next human-controlled gate is the 90-second demo recording.
+The remaining media gate is narration/voiceover for the already-complete 90-second visual cut.
 
-Use `docs/demo-script.md` and the final deck as the visual backbone. Record only publication-safe app footage/evidence. After the recording exists:
+After narration is available:
 
-1. review timing and privacy frame-by-frame;
-2. place the final video URL into the submission copy;
+1. mix the narration into the 90-second visual cut and verify final loudness/timing;
+2. publish/host the final demo and place its URL into the submission copy;
 3. run one final documentation/link/release audit;
 4. open the M9 PR for review;
-5. submit only after repository, APK, screenshot, deck, and video references are final.
+5. submit only after repository, APK, screenshot, deck, and final video references are stable.
