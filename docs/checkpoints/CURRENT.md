@@ -171,30 +171,33 @@ The controlled M8 Anchor upgrade is complete on Solana devnet. No program identi
 
 Upgrade evidence:
 
-- deploy workflow run: `36294101421`, attempt 2 — PASS
-- deployed branch commit: `2769fb6cbc13800a653a579e77ef630c2832f52d`
-- upgrade transaction signature: `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
-- Program ID after upgrade: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- program data auto-extension during upgrade: `230,680 -> 254,144` bytes
+- original hardened upgrade workflow: run `36294101421`, attempt 2 — PASS
+- original hardened upgrade branch commit: `2769fb6cbc13800a653a579e77ef630c2832f52d`
+- original upgrade transaction signature: `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- latest controlled same-SBF deploy confirmation: run `36296759500` — PASS at branch commit `b58718faa6cd46b552e5b83e6c9346edd669a1e9`
+- Program ID after upgrade/redeploy: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- program data auto-extension during the first hardened upgrade: `230,680 -> 254,144` bytes
 - metadata account remained: `7GuXcvE5MrKneC5vSAcyZZHmQ8k1Pm7NhNHTGDTBmqWp`
 - deploy workflow post-check: account present, BPFUpgradeableLoader-owned, executable — PASS
 - key-material cleanup step — PASS
 
 Independent signer-free post-upgrade verification was strengthened in commit `b4d8fd4238865d66922fd24c96ea1a80543b2247`, and enabled on `m8-*` in commit `58857d083cb20111e48ee720b22fa7d626c0507c`.
 
-Fresh independent preflight:
+Fresh independent preflight after the latest controlled deploy:
 
-- run `36296153445` — PASS
+- run `36296153445`, attempt 2 — PASS
 - Program ID: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 - owner: `BPFLoaderUpgradeab1e11111111111111111111111`
 - executable: `True`
 - canonical ProgramData: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
 - ProgramData data length: `254,189` bytes (`45` loader metadata + `254,144` SBF)
-- last deployed slot: `504665480`
+- last deployed slot: `504672943`
 - upgrade authority: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
-- confirmed RPC context slot at inspection: `504666436`
+- confirmed RPC context slot at inspection: `504690023`
 
-This independently establishes that the hardened M8 SBF is live on devnet under the original controlled identity and authority. It does not imply or authorize any mainnet deployment.
+Detailed fresh verification record: `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`.
+
+This independently establishes that the hardened M8 SBF is live on devnet under the original controlled identity and authority after the latest deploy. It does not imply or authorize any mainnet deployment.
 
 ## Remaining M8 work
 
@@ -219,6 +222,7 @@ Deep-link/QR handoff is optional and is not currently an M8 blocker; it can move
 - `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
 - `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`
 - `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
+- `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`
 
 ## Do not repeat
 
