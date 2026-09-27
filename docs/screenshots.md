@@ -54,6 +54,16 @@ Purpose: lets a reviewer understand the system without reading the whole reposit
 - Do not show recovery phrases, signing secrets, API credentials, or deployment material.
 - Use the public task PDA and transaction signature in text next to screenshots rather than forcing long identifiers into the image itself.
 
-## Current release-candidate screenshot
+## Device-capture policy for M9 submission
 
-The physically verified M9 release candidate has already shown the completed M8 task as authoritative `PAID` after clean installation. Before publishing that device screenshot, make a deliberate privacy decision about the status bar and any personal device metadata visible around the app UI.
+The physical release-candidate screenshot used to validate the clean install is **verification evidence only** and must not be published as submission media.
+
+For public materials, capture a fresh, deliberate screenshot from the release candidate with:
+- only the Ground Relay app visible;
+- the task reconciled to `PAID`;
+- the wallet shown only in the app's normal truncated form;
+- no notification shade or unrelated app UI;
+- no evidence photo visible;
+- status bar kept only if it contains no personal information and does not distract from the product.
+
+A fresh public-facing screenshot supersedes the private verification capture for README, deck, submission gallery, and demo-video stills.
