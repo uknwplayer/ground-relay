@@ -157,9 +157,7 @@ Final demo master:
 - device ambient audio: not retained
 - SHA-256: `e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
 
-Narration was distributed across six timed blocks so the spoken story aligns with the visual sequence: problem, funded task, worker/evidence, payout, failure recovery, and closing statement. The final voice ends before the closing frame and the master remains exactly 90 seconds.
-
-The video is complete locally but is not yet publicly hosted. Publishing it to a public URL remains a separate approval/publication step.
+The approved master was uploaded to Google Drive with stable file ID `1WVVwYWnvEmRWtLEj9Adk2Zwx1angzDFy` and the stable viewer URL is now present in `docs/submission-copy.md`. An external anonymous-access check has not yet succeeded, so public link permission still needs to be confirmed before submission.
 
 ## Reviewer/submission package now present
 
@@ -167,7 +165,7 @@ The video is complete locally but is not yet publicly hosted. Publishing it to a
 - `docs/reviewer-verification.md` — independent reviewer checks
 - `docs/architecture.md` — current hardened architecture
 - `docs/product-anatomy.md` — product/actor/trust model
-- `docs/submission-copy.md` — hackathon copy
+- `docs/submission-copy.md` — hackathon copy and final demo URL
 - `docs/demo-script.md` — 90-second narration/recording script
 - `docs/screenshots.md` — screenshot plan and privacy rules
 - `docs/pitch-deck-outline.md` — judge-facing deck narrative source
@@ -186,6 +184,7 @@ The video is complete locally but is not yet publicly hosted. Publishing it to a
 - public mobile recording privacy/timing review — PASS
 - 90-second visual cut duration/render check — PASS
 - final narrated master duration/stream/hash audit — PASS
+- M9 branch vs `main`: documentation/checkpoint changes only — PASS
 
 ## Do not repeat
 
@@ -200,11 +199,10 @@ The video is complete locally but is not yet publicly hosted. Publishing it to a
 
 ## Next recommended action
 
-The remaining submission gate is publication and final link integration.
+The only remaining publication gate is anonymous access to the already-uploaded Drive video.
 
-1. review the final 90-second master once as a viewer;
-2. publish/host the approved final demo and obtain a stable public URL;
-3. place that URL into `docs/submission-copy.md`;
-4. run one final documentation/link/release audit;
-5. open the M9 PR for review;
-6. submit only after repository, APK, screenshot, deck, and final video references are stable.
+1. set the final video to `Anyone with the link` / viewer in Google Drive;
+2. verify the exact stable link opens without authentication;
+3. review the M9 pull request and its checks;
+4. merge M9 only after the public video link is confirmed;
+5. submit after repository, APK, screenshot, deck, and final video references are stable.
