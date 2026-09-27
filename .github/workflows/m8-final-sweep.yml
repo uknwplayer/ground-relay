@@ -1,5 +1,6 @@
 name: M8 final quality sweep
 
+# Final rerun also verifies the completed M8 documentation handoff.
 on:
   push:
     branches: ["m8-product-hardening"]
@@ -84,14 +85,22 @@ jobs:
           ]:
               if phrase in readme:
                   failures.append(f'stale README claim: {phrase}')
+          if '**M8 is complete on `m8-product-hardening`.**' not in readme:
+              failures.append('README does not mark M8 complete on the working branch')
 
           current = Path('docs/checkpoints/CURRENT.md').read_text()
-          if 'M8 is **not complete yet** because the generic flow still needs a fresh physical non-canonical end-to-end proof' in current:
-              failures.append('CURRENT checkpoint still says fresh physical M8 proof is pending')
+          if '**Stage:** M9 — release/submission preparation' not in current:
+              failures.append('CURRENT checkpoint has not advanced to M9')
+          if 'M8 product hardening is complete on the working branch.' not in current:
+              failures.append('CURRENT checkpoint does not state M8 completion')
 
           roadmap = Path('docs/roadmap.md').read_text()
-          if '- [ ] Run the full physical Android flow against a new non-canonical devnet task' in roadmap:
-              failures.append('roadmap still marks the fresh physical M8 proof incomplete')
+          if '**Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Complete.**' not in roadmap:
+              failures.append('roadmap does not mark the M8 exit condition complete')
+
+          completion_record = Path('docs/checkpoints/archive/2026-09-27-m8-complete.md')
+          if not completion_record.exists() or 'M8 is complete on `m8-product-hardening`.' not in completion_record.read_text():
+              failures.append('M8 completion checkpoint is missing or incomplete')
 
           seed = json.loads(Path('gateway/data/state.json').read_text())
           proof = seed.get('tasks', {}).get('m8-physical-2026-09-27-v1')
