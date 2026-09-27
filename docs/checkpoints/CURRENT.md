@@ -1,19 +1,21 @@
 # Current checkpoint
 
 **UTC date:** 2026-09-27  
-**Stage:** M8 — product hardening closeout  
+**Stage:** M9 — release/submission preparation  
 **Repository:** `uknwplayer/ground-relay`  
-**Working branch:** `m8-product-hardening`
+**Working branch:** `m8-product-hardening` pending integration into `main`
 
 ## Current state
 
-Ground Relay has now proved the hardened product loop on a fresh, non-canonical Solana devnet task:
+M8 product hardening is complete on the working branch.
+
+Ground Relay has physically proved the hardened loop on a fresh, non-canonical Solana devnet task:
 
 `hosted inbox -> select -> claim -> restart/recovery -> camera evidence -> DELIVERED -> poster ACCEPTED -> generic verified payout -> PAID reconciliation`
 
-The physical proof is complete. The device also encountered a real DNS/RPC failure immediately after a successful payout transaction. The app remained fail-closed, the transaction was not replayed, independent chain verification found the task already `PAID`, and the Android UI later reconciled to `PAID` after network restoration.
+The proof also exercised a real post-wallet DNS/RPC failure. The payout had already reached Solana; the app did not replay the transaction, independent chain verification found `PAID`, and the Android UI later reconciled to the terminal paid receipt after network recovery.
 
-M5, M6, and M7 are complete. M7 is merged into `main`. M8 implementation and physical evidence are complete; the branch is at the final consolidated quality/hygiene gate before M8 is formally closed and work moves to M9 release/submission.
+M5, M6, M7, and M8 are complete. M7 is already merged into `main`. M8 is fully verified on `m8-product-hardening`; integration into `main` is the next human-controlled branch decision before normal M9 release work proceeds.
 
 ## Controlled devnet identity
 
@@ -104,7 +106,10 @@ Exact payout verification:
 
 Verification run `36311952353` — PASS.
 
-Detailed record: `docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`.
+Detailed records:
+
+- `docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`
+- `docs/checkpoints/archive/2026-09-27-m8-complete.md`
 
 ## Hosted Gateway / Android evidence
 
@@ -124,86 +129,72 @@ Evidence:
 - hosted-Gateway Android APK `36303092998` — PASS
 - poster acceptance `36311385406` — PASS
 - post-device-failure paid-state verification `36311843338` — PASS
+- exact payout verification `36311952353` — PASS
+- final Android reconciliation: `PAID`
 
-The persisted physical-proof Gateway seed is terminalized as `PAID`; it must not be re-advertised as fresh work after a cold start.
+The persisted physical-proof Gateway seed is terminalized as `PAID`; a cold start must not re-advertise it as fresh work.
 
-## Recovery bug found during the physical proof
+## Recovery regression fixed during M8
 
 During payout, the Android device lost DNS resolution for `api.devnet.solana.com` after the wallet transaction had already reached Solana. The app correctly locked further actions, but the selected-task badge could fall back to stale Gateway `OPEN` state while the authoritative RPC read was unavailable.
 
-Root cause:
-
-`displayStatus` / `displayWorker` fell back to the inbox projection after `authoritative` was cleared at refresh start.
-
 Fix:
 
-- selected-task status/worker now display only from authoritative Solana state;
-- RPC failure presents unknown/unreconciled state rather than stale Gateway state;
-- actions remain fail-closed.
+- selected-task status/worker display only from authoritative Solana state;
+- unavailable RPC presents an unreconciled/unknown state instead of stale Gateway state;
+- state-changing actions remain fail-closed.
 
 Regression evidence:
 
 - RED run `36312405844`
 - GREEN run `36312595528`
 
-## M8 hardening already implemented
+## Runtime / cold-start cleanup
 
-### Mobile
+M8 closeout removed the historical canonical proof fixture from active runtime paths and deleted the obsolete `src/demo/task.ts`. Historical values remain only where explicitly useful as test vectors or documentation evidence.
 
-- worker-safe Gateway inbox;
-- exact selected-task PDA reconciliation;
-- versioned restart context with no automatic transaction replay;
-- receipt/history model;
-- MWA false-negative reconciliation;
-- generic payout context derivation and live account validation;
-- fail-closed wallet/network behavior;
-- raw evidence bytes kept out of persistent state.
+The hosted physical-proof seed was terminalized as `PAID` with the verified worker/evidence hash.
 
-### Gateway
+Cleanup commit:
 
-- durable task persistence and idempotent create;
-- task ↔ PDA binding;
-- authoritative Solana sync;
-- stable resume event identity;
-- persisted retry/backoff and restart recovery;
-- SSRF hardening with DNS validation, public-target enforcement, connection pinning, TLS hostname preservation, and bounded/revalidated redirects;
-- at-least-once delivery semantics until acknowledgement.
+`63fcfdc58a3a2aaa4758277eec111e7b0b774cb8`
 
-### Anchor
+## Consolidated M8 completion gate
 
-- exact credit checks;
-- canonical task-PDA constraints;
-- classic SPL/no-freeze policy for new escrows;
-- delivery deadline enforcement;
-- claimed timeout recovery;
-- terminal zero-balance vault closure to original poster rent destination;
-- durable task PDA receipt.
+Workflow:
+
+`M8 final quality sweep`
+
+Run:
+
+`36313234829`
+
+Result:
+
+**PASS**
+
+Fresh verification from that single run:
+
+- root mobile tests: `106/106` PASS;
+- TypeScript typecheck: PASS;
+- Gateway tests: `63/63` PASS;
+- deterministic Gateway resume demo: PASS;
+- Anchor/Rust workspace tests: PASS;
+- repository hygiene audit: PASS;
+- hygiene checked `41` tracked active-source files and `128` tracked repository files.
+
+This satisfies the final M8 exit gate.
 
 ## Historical fixture policy
 
-The first canonical physical task remains historical evidence only. It must not be reset or used as a generic execution fallback.
-
-The old runtime `demoTask` and historical fixture constants have been retired from active mobile source during M8 closeout. Historical addresses/signatures may remain in tests and documentation where they are explicitly used as proof vectors.
-
-## Current closeout gate
-
-A consolidated final sweep now verifies in one run:
-
-1. mobile Node tests;
-2. TypeScript typecheck;
-3. Gateway tests;
-4. deterministic Gateway demo;
-5. Anchor host tests;
-6. repository hygiene for stale fixture/runtime values, stale M8 wording, suspicious tracked secret filenames, and active-source TODO/FIXME markers.
-
-The first sweep run `36312688805` intentionally failed only at the hygiene stage and identified the remaining cleanup targets; all mobile, Gateway, demo, and Anchor test stages passed. The runtime/docs cleanup is being applied, then the sweep must be rerun green before M8 is declared complete.
+The first canonical physical task is historical audit evidence only. Do not reset it, recreate it, or use it as a generic execution fallback.
 
 ## Do not repeat
 
 - Do **not** run devnet identity bootstrap again.
 - Do **not** regenerate the program keypair.
 - Do **not** overwrite deployment GitHub Secrets.
-- Do **not** reset/recreate the historical paid fixture.
+- Do **not** reset/recreate either paid physical proof task.
 - Do **not** retry the M8 physical payout; it is already confirmed `PAID`.
 - Do **not** treat Gateway/cache state as transaction authorization.
 - Do **not** commit keys, seed phrases, wallet secrets, or auth tokens.
@@ -213,4 +204,10 @@ The first sweep run `36312688805` intentionally failed only at the hygiene stage
 
 ## Next recommended action
 
-Finish the consolidated M8 quality/hygiene sweep. If it passes, archive an M8-complete checkpoint and advance the roadmap to M9 release/submission work: final release APK, fresh-device install, reviewer proof links, demo video, pitch deck, screenshots, and submission copy.
+Choose how to integrate `m8-product-hardening` into `main`. After integration, begin M9:
+
+1. build the final post-M8 release APK;
+2. verify fresh-device installation of the release candidate;
+3. collect reviewer-facing proof links and verification instructions;
+4. finalize demo video, pitch deck, screenshots, and submission copy;
+5. optionally add deep-link/QR handoff if it materially improves the submission experience.
