@@ -14,6 +14,10 @@ This file is the shortest path for an independent reviewer, security scanner, or
 
 No mainnet readiness claim is made by this repository.
 
+## Automated audit discovery
+
+For repository scanners that cache results by commit SHA, use the current `main` head. The root contains `README.md`, `AUDIT.md`, `SECURITY.md`, `LICENSE`, `package.json`, `Cargo.toml`, `Anchor.toml`, source directories, tests, and GitHub Actions workflows. No runtime change is required to make these audit entrypoints discoverable.
+
 ## Source map
 
 | Component | Primary source | Responsibility |
