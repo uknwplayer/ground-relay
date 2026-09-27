@@ -12,7 +12,7 @@ import {
   GROUND_RELAY_PROGRAM_ADDRESS,
   SPL_TOKEN_PROGRAM_ADDRESS,
   type PayoutExecutionContext,
-} from "./ground-relay";
+} from "./ground-relay.ts";
 
 const ASSOCIATED_TOKEN_PROGRAM_ADDRESS = address(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
