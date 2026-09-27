@@ -10,7 +10,7 @@
 
 M0 through M8 are complete. M8 was merged through PR #3 into `main`.
 
-M9 release provenance and the physical clean-install gate are now complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
+M9 release provenance and the physical clean-install gate are complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
 
 Ground Relay has therefore proved both the full hardened lifecycle and the release-candidate recovery/read path:
 
@@ -110,6 +110,18 @@ Detailed device gate:
 
 `docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md`
 
+## Public screenshot decision
+
+The earlier clean-install proof screenshot remains private verification evidence.
+
+A separate, deliberate Android screenshot was then captured for public submission use and approved. It shows Ground Relay branding, the truncated worker wallet, `PAID`, reward amount, task title, selected PDA summary, authoritative worker line, `ESCROW PAID · DEVNET`, and restart-safety copy, without raw evidence content or unrelated notifications.
+
+Use only this dedicated public capture for submission materials. Cosmetic cropping of Android system chrome is allowed; do not alter app content or fabricate state.
+
+Screenshot guidance:
+
+`docs/screenshots.md`
+
 ## Reviewer/submission package now present
 
 - `docs/release-candidate.md` — APK provenance and hashes
@@ -147,12 +159,9 @@ Detailed device gate:
 
 Finish the presentation layer without changing settlement behavior:
 
-1. finalize README reviewer start-here section;
-2. prepare publication-safe screenshots from the approved screenshot plan;
-3. turn `docs/pitch-deck-outline.md` into the final deck;
-4. record/edit the 90-second demo using `docs/demo-script.md`;
-5. fill the actual hackathon submission form with `docs/submission-copy.md`;
-6. run one final documentation/link/release audit;
-7. submit only after the public screenshots, video, deck, repository, and APK references are final.
-
-Publishing a user-device screenshot is a separate privacy decision; do not place the current device capture in the public repository without explicit approval.
+1. create the final judge-facing deck from `docs/pitch-deck-outline.md`;
+2. record/edit the 90-second demo using `docs/demo-script.md`;
+3. place the approved public screenshot into the submission media package;
+4. fill the actual hackathon submission form with `docs/submission-copy.md`;
+5. run one final documentation/link/release audit;
+6. submit only after the public screenshot, video, deck, repository, and APK references are final.
