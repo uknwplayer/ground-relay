@@ -1,26 +1,21 @@
 # Current checkpoint
 
 **UTC date:** 2026-09-27  
-**Stage:** M8 — product hardening  
+**Stage:** M8 — product hardening closeout  
 **Repository:** `uknwplayer/ground-relay`  
 **Working branch:** `m8-product-hardening`
 
 ## Current state
 
-Ground Relay has already proven the core product thesis in two connected halves:
+Ground Relay has now proved the hardened product loop on a fresh, non-canonical Solana devnet task:
 
-1. a physical Android worker completed and settled a funded Anchor task on Solana devnet;
-2. the non-custodial Agent Gateway correlated a task to an originating agent and delivered an idempotent resume callback only after authoritative PAID settlement.
+`hosted inbox -> select -> claim -> restart/recovery -> camera evidence -> DELIVERED -> poster ACCEPTED -> generic verified payout -> PAID reconciliation`
 
-Target loop:
+The physical proof is complete. The device also encountered a real DNS/RPC failure immediately after a successful payout transaction. The app remained fail-closed, the transaction was not replayed, independent chain verification found the task already `PAID`, and the Android UI later reconciled to `PAID` after network restoration.
 
-`agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> verified agent resume callback`
+M5, M6, and M7 are complete. M7 is merged into `main`. M8 implementation and physical evidence are complete; the branch is at the final consolidated quality/hygiene gate before M8 is formally closed and work moves to M9 release/submission.
 
-M5, M6, and M7 are complete. M7 is merged into `main`. M8 is active and now includes the multi-task inbox/restart flow, history, evidence privacy, callback/SSRF hardening, Anchor payment/account hardening, generic selected-task payout verification, claimed-task timeout recovery, terminal vault rent reclamation, current SBF/IDL consistency, and the hardened Anchor deployment on devnet.
-
-M8 is **not complete yet** because the generic flow still needs a fresh physical non-canonical end-to-end proof on the hardened deployment, followed by the final recovery/security/demo sweep.
-
-## Canonical devnet identity
+## Controlled devnet identity
 
 Program ID:
 
@@ -36,207 +31,186 @@ Canonical ProgramData:
 
 Do not regenerate the program identity or replace deployment Secrets.
 
-## Canonical historical physical payout proof
+## Hardened deployment evidence
 
-- task ID: `e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662`
-- task PDA: `7knPNeaZHDn7qVzdGy6Qbq3tWnHMnP2TpHULwLKzVtpT`
-- vault PDA: `FGaGmGu8cbYRbdsUubmLDDRNnjic5NutnCM4kFL77bZm`
-- poster: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
-- worker: `7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
-- worker WSOL account: `2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
-- mint: `So11111111111111111111111111111111111111112`
-- reward: `1,000,000` atomic = `0.001 WSOL`
-- evidence SHA-256: `7d29069a59aec691ef133d7b7813cdd6e0d4a2ffc807e0887f9a5ad5a59ba802`
-- acceptance signature: `4QVs7r2xBgSNzZHm8z3N5jbJZKVNCAT4cXEw9pTCqVRv79DchyYDfjnUXUsDJCVWuWFZCZ6WJYE1zTBrDoHSF8Hd`
-- payout signature: `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
-- independent post-payout inspection: run `36207197941`
-- final state: `PAID`
-- final vault amount: `0`
-- final worker token amount: `1,000,000`
+- Anchor SBF + IDL run `36288500115` — PASS
+- IDL client consistency `36289499220` — PASS
+- hardened upgrade run `36294101421`, attempt 2 — PASS
+- upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
+- independent post-deploy preflight `36296153445`, attempt 2 — PASS
+- independently observed last deployed slot `504672943`
+- Program ID and ProgramData identity remained unchanged
 
-Detailed record: `docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`.
+No mainnet deployment is authorized or implied by this checkpoint.
 
-This fixture is historical proof only. Do not reset it or present it as a fresh OPEN task.
+## Fresh M8 physical proof
 
-## M6 lifecycle proof
+Gateway task ID:
 
-Run `36208008464` proved wrong-worker/wrong-poster rejection, release-before-acceptance rejection, second-payout rejection with unchanged balances, expired-claim rejection, exact open-task cancellation/refund, second-cancel rejection, and claim-after-cancel rejection.
+`m8-physical-2026-09-27-v1`
 
-Detailed record: `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`.
+Task ID hex:
 
-## M7 Agent Gateway proof
+`43708dffc89099253d8ac7dce7ac1b70fcc0bdd6b7498051bcbae2dc908a77b8`
 
-M7 provides durable persistence, task <-> PDA binding, authoritative Solana sync, create idempotency, stable resume event identity, verified PAID settlement notification, HTTP resume delivery, persisted retry/backoff, restart recovery, manual retry, and a deterministic agent-resume demo.
+Task PDA:
 
-Merged M7 main commit:
+`BT5sKaBENnaJx1FPmYTtLC7XEojDnVvXpR455cu1Np5y`
 
-`42231293ed787d367d0db9d4e183daed6e9f979c`
+Vault PDA:
 
-Post-merge Gateway check:
+`F8vdvACWiaFCmh95HLEJGKVbZsXZ9Wvs5cd33qzbZysV`
 
-`36249541738` — PASS
+Worker:
 
-Resume semantics remain:
+`7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
 
-**one logical event, at-least-once HTTP transport until acknowledgement**.
+Worker WSOL ATA:
 
-Detailed record: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
+`2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
 
-## M8 implemented hardening
+Reward mint:
 
-### Mobile product flow
+`So11111111111111111111111111111111111111112`
 
-- Gateway worker-safe inbox and typed client;
-- selected-task PDA reconciliation against Solana;
-- versioned restart state with no automatic transaction replay;
-- dedicated receipt/history model and screen;
-- read-only fail-closed behavior when authoritative network state is unavailable;
-- MWA false-negative reconciliation against chain state;
-- app no longer uses the canonical historical fixture as generic execution state.
+Reward:
 
-### Evidence privacy
+`1,000,000` atomic = `0.001 WSOL`
 
-- raw photo remains local;
-- URI/Base64/bytes are not persisted in AsyncStorage;
-- cleanup occurs after confirmed/reconciled delivery, task abandon/change, or successful retake replacement;
-- ambiguous wallet errors reconcile before any deletion;
-- metadata stripping is not falsely claimed.
+Evidence SHA-256:
 
-Policy: `docs/security/evidence-privacy.md`.
+`87c1f0a74d733d3f7e197dc8eb2319bbcd1e55eadef00a4db7c84e64124aeed1`
 
-### Gateway callback / SSRF
+Acceptance signature:
 
-- callback URLs reject credentials and unsafe/private/local/reserved targets;
-- DNS is resolved before connection and unsafe answers fail closed;
-- connection is pinned to the validated IP while preserving TLS hostname/SNI;
-- redirects are manually bounded and revalidated;
-- callback event identity / `Idempotency-Key` remains stable across retries.
+`2e9xNS5DxU1a6i6cXYpWMHvWqsyGHkvLZtpUM74wmQQJh581BzJSd6fLcgm2yL7accFb3uap8mjbCSE8AfPpRC1C`
 
-Fresh Gateway verification after docs: `36272343485` — PASS.
+Payout signature:
 
-### Anchor security/payment hardening
+`UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
 
-Current branch includes:
+Payout slot:
 
-- exact credited-token checks for initial funding, worker payout, and poster refund;
-- canonical task-PDA validation on state transitions;
-- new escrows restricted to classic SPL Token with `freeze_authority = None`;
-- `expires_at` enforced as the delivery deadline;
-- poster recovery of abandoned `Claimed` escrow only after expiry;
-- terminal vault closure only for zero-balance `Paid`/`Cancelled` tasks;
-- terminal vault rent always returns to the original poster;
-- task PDA intentionally remains alive as the authoritative receipt.
+`504746194`
 
-Key Anchor verification runs:
+Exact payout verification:
 
-- exact token credit: `36273332817` — PASS
-- canonical task PDA: `36274047485` — PASS
-- mint/token policy: `36275212868` — PASS
-- claimed timeout recovery: `36278762784` — PASS
-- terminal vault reclamation: `36280520588` — PASS
+- worker WSOL before: `1,000,000`
+- worker WSOL after: `2,000,000`
+- worker delta: `+1,000,000`
+- vault before: `1,000,000`
+- vault after: `0`
+- authoritative task state: `PAID`
 
-### Generic selected-task payout
+Verification run `36311952353` — PASS.
 
-Generic payout is no longer blanket fail-closed.
+Detailed record: `docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`.
 
-The app now derives the canonical vault from `['vault', taskPda]`, derives the worker classic-SPL ATA, reads both accounts from Solana, and enables `release_payment` only after validating owner program, mint, authority, and vault funding. No canonical-fixture fallback is used.
+## Hosted Gateway / Android evidence
 
-Verification:
+Hosted Gateway:
 
-- GREEN commit: `f01ae707af39854b44b33e6c63848815aa219635`
-- root CI: `36282472180` — PASS
-- Android standalone APK: `36282472199` — PASS
+`https://ground-relay-agent-gateway-m8.onrender.com`
 
-If the worker ATA does not exist, payout remains blocked; the app does not silently create it or spend worker rent.
+Worker API:
 
-## Current SBF + IDL proof
+`https://ground-relay-agent-gateway-m8.onrender.com/v1`
 
-The M8 branch runs Anchor SBF/IDL and IDL-client workflows directly on `m8-*` pushes.
+Evidence:
 
-- Anchor workflow trigger commit: `cda4603b27f35d435ea5829bb0db0823aac80581`
-- IDL-client workflow trigger commit: `dec6cfa7d0d7630bc32d7db380a6e5f6822846f9`
-- `Anchor SBF + IDL` run: `36288500115` — PASS
-- build artifact: `10921571305`
-- generated SBF: `ground_relay.so`, 254,144 bytes
-- generated IDL: `ground_relay.json`, 15,712 bytes
-- generated IDL program address: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- committed IDL synchronized from the generated artifact: `24702a7430ff78ca86a2a3d9bf90199ef11d81a1`
-- `IDL client consistency` run after synchronization: `36289499220` — PASS
+- listener RED/GREEN: `36302895258` / `36302967162`
+- hosted smoke `36303711875` — PASS
+- fresh task create/bind `36303227689` — PASS
+- hosted-Gateway Android APK `36303092998` — PASS
+- poster acceptance `36311385406` — PASS
+- post-device-failure paid-state verification `36311843338` — PASS
 
-This proves the branch artifacts and client-facing IDL are consistent. The same hardened SBF was subsequently upgraded onto the controlled devnet program identity and independently inspected on-chain, as recorded below.
+The persisted physical-proof Gateway seed is terminalized as `PAID`; it must not be re-advertised as fresh work after a cold start.
 
-## Hardened devnet deployment proof
+## Recovery bug found during the physical proof
 
-The controlled M8 Anchor upgrade is complete on Solana devnet. No program identity, ProgramData address, deployment Secrets, or mainnet state were changed.
+During payout, the Android device lost DNS resolution for `api.devnet.solana.com` after the wallet transaction had already reached Solana. The app correctly locked further actions, but the selected-task badge could fall back to stale Gateway `OPEN` state while the authoritative RPC read was unavailable.
 
-Upgrade evidence:
+Root cause:
 
-- original hardened upgrade workflow: run `36294101421`, attempt 2 — PASS
-- original hardened upgrade branch commit: `2769fb6cbc13800a653a579e77ef630c2832f52d`
-- original upgrade transaction signature: `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
-- latest controlled same-SBF deploy confirmation: run `36296759500` — PASS at branch commit `b58718faa6cd46b552e5b83e6c9346edd669a1e9`
-- Program ID after upgrade/redeploy: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- program data auto-extension during the first hardened upgrade: `230,680 -> 254,144` bytes
-- metadata account remained: `7GuXcvE5MrKneC5vSAcyZZHmQ8k1Pm7NhNHTGDTBmqWp`
-- deploy workflow post-check: account present, BPFUpgradeableLoader-owned, executable — PASS
-- key-material cleanup step — PASS
+`displayStatus` / `displayWorker` fell back to the inbox projection after `authoritative` was cleared at refresh start.
 
-Independent signer-free post-upgrade verification was strengthened in commit `b4d8fd4238865d66922fd24c96ea1a80543b2247`, and enabled on `m8-*` in commit `58857d083cb20111e48ee720b22fa7d626c0507c`.
+Fix:
 
-Fresh independent preflight after the latest controlled deploy:
+- selected-task status/worker now display only from authoritative Solana state;
+- RPC failure presents unknown/unreconciled state rather than stale Gateway state;
+- actions remain fail-closed.
 
-- run `36296153445`, attempt 2 — PASS
-- Program ID: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- owner: `BPFLoaderUpgradeab1e11111111111111111111111`
-- executable: `True`
-- canonical ProgramData: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
-- ProgramData data length: `254,189` bytes (`45` loader metadata + `254,144` SBF)
-- last deployed slot: `504672943`
-- upgrade authority: `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
-- confirmed RPC context slot at inspection: `504690023`
+Regression evidence:
 
-Detailed fresh verification record: `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`.
+- RED run `36312405844`
+- GREEN run `36312595528`
 
-This independently establishes that the hardened M8 SBF is live on devnet under the original controlled identity and authority after the latest deploy. It does not imply or authorize any mainnet deployment.
+## M8 hardening already implemented
 
-## Remaining M8 work
+### Mobile
 
-1. Create/use a fresh non-canonical devnet task and run the physical Android flow on the hardened deployment: inbox -> select -> claim -> restart/recovery -> evidence -> accept -> verified payout -> paid reconciliation.
-2. Exercise final wallet/network recovery cases on the physical device.
-3. Perform a repository-wide demo-only/legacy wording/value sweep and a final consolidated security review.
-4. Close M8 documentation/checkpoints after the physical proof.
+- worker-safe Gateway inbox;
+- exact selected-task PDA reconciliation;
+- versioned restart context with no automatic transaction replay;
+- receipt/history model;
+- MWA false-negative reconciliation;
+- generic payout context derivation and live account validation;
+- fail-closed wallet/network behavior;
+- raw evidence bytes kept out of persistent state.
 
-Deep-link/QR handoff is optional and is not currently an M8 blocker; it can move to M9 unless it materially improves the final demo.
+### Gateway
 
-## Key documents
+- durable task persistence and idempotent create;
+- task ↔ PDA binding;
+- authoritative Solana sync;
+- stable resume event identity;
+- persisted retry/backoff and restart recovery;
+- SSRF hardening with DNS validation, public-target enforcement, connection pinning, TLS hostname preservation, and bounded/revalidated redirects;
+- at-least-once delivery semantics until acknowledgement.
 
-- `docs/product-anatomy.md`
-- `docs/roadmap.md`
-- `docs/architecture.md`
-- `docs/escrow-protocol.md`
-- `docs/openapi.yaml`
-- `docs/security/evidence-privacy.md`
-- `docs/superpowers/specs/2026-09-26-m8-mobile-inbox-restart-design.md`
-- `docs/superpowers/plans/2026-09-26-m8-mobile-inbox-restart.md`
-- `docs/checkpoints/archive/2026-09-26-mobile-anchor-paid.md`
-- `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`
-- `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`
-- `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
-- `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`
+### Anchor
+
+- exact credit checks;
+- canonical task-PDA constraints;
+- classic SPL/no-freeze policy for new escrows;
+- delivery deadline enforcement;
+- claimed timeout recovery;
+- terminal zero-balance vault closure to original poster rent destination;
+- durable task PDA receipt.
+
+## Historical fixture policy
+
+The first canonical physical task remains historical evidence only. It must not be reset or used as a generic execution fallback.
+
+The old runtime `demoTask` and historical fixture constants have been retired from active mobile source during M8 closeout. Historical addresses/signatures may remain in tests and documentation where they are explicitly used as proof vectors.
+
+## Current closeout gate
+
+A consolidated final sweep now verifies in one run:
+
+1. mobile Node tests;
+2. TypeScript typecheck;
+3. Gateway tests;
+4. deterministic Gateway demo;
+5. Anchor host tests;
+6. repository hygiene for stale fixture/runtime values, stale M8 wording, suspicious tracked secret filenames, and active-source TODO/FIXME markers.
+
+The first sweep run `36312688805` intentionally failed only at the hygiene stage and identified the remaining cleanup targets; all mobile, Gateway, demo, and Anchor test stages passed. The runtime/docs cleanup is being applied, then the sweep must be rerun green before M8 is declared complete.
 
 ## Do not repeat
 
 - Do **not** run devnet identity bootstrap again.
 - Do **not** regenerate the program keypair.
 - Do **not** overwrite deployment GitHub Secrets.
-- Do **not** reset/recreate the canonical paid fixture.
-- Do **not** use old memo receipts as the primary Anchor proof.
+- Do **not** reset/recreate the historical paid fixture.
+- Do **not** retry the M8 physical payout; it is already confirmed `PAID`.
+- Do **not** treat Gateway/cache state as transaction authorization.
 - Do **not** commit keys, seed phrases, wallet secrets, or auth tokens.
 - Do **not** make the Agent Gateway a custodial signer.
-- Do **not** describe HTTP callback delivery as exactly-once transport.
+- Do **not** describe HTTP callback transport as exactly-once.
 - Do **not** authorize mainnet deployment from this checkpoint.
-- Do **not** treat a future branch build alone as deployment proof; require an upgrade transaction plus an independent signer-free on-chain verification as done here.
 
 ## Next recommended action
 
-Run the fresh non-canonical physical M8 end-to-end proof on the hardened devnet deployment. It must cover task discovery/selection, claim, restart/recovery, evidence submission, acceptance, generic verified payout, and final PAID reconciliation before M8 is declared complete.
+Finish the consolidated M8 quality/hygiene sweep. If it passes, archive an M8-complete checkpoint and advance the roadmap to M9 release/submission work: final release APK, fresh-device install, reviewer proof links, demo video, pitch deck, screenshots, and submission copy.
