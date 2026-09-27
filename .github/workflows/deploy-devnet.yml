@@ -67,28 +67,39 @@ jobs:
 
       - name: Verify devnet payer
         run: |
-          solana config set --url https://api.devnet.solana.com >/dev/null
+          solana config set \
+            --url https://api.devnet.solana.com \
+            --keypair /tmp/ground-relay-deployer.json >/dev/null
           echo "Deployer: $(solana address -k /tmp/ground-relay-deployer.json)"
           solana balance -k /tmp/ground-relay-deployer.json
 
-      - name: Ensure devnet payer funding for upgrade
+      - name: Reclaim stale failed-upgrade buffer and ensure funding
         run: |
           set -euo pipefail
           ADDRESS="$(solana address -k /tmp/ground-relay-deployer.json)"
-          BALANCE_LAMPORTS="$(solana balance "$ADDRESS" --lamports | awk '{print $1}')"
-          MIN_LAMPORTS=2000000000
-          echo "Current devnet payer balance: ${BALANCE_LAMPORTS} lamports"
-          if [ "$BALANCE_LAMPORTS" -lt "$MIN_LAMPORTS" ]; then
-            echo "Requesting devnet SOL from the public faucet..."
-            for attempt in 1 2 3; do
-              if solana airdrop 2 "$ADDRESS" --url https://api.devnet.solana.com; then
-                break
-              fi
-              echo "Airdrop attempt $attempt failed; retrying..."
-              sleep 5
-            done
+          STALE_BUFFER="FNeYuz1mNWvyA6BqY6fUrGiVBEMxz4wtTgyYKrc8Qwc"
+          MIN_LAMPORTS=1450000000
+
+          if solana account "$STALE_BUFFER" >/dev/null 2>&1; then
+            echo "Reclaiming known stale devnet upgrade buffer: $STALE_BUFFER"
+            solana program close "$STALE_BUFFER"
+          else
+            echo "Known stale buffer is already absent: $STALE_BUFFER"
           fi
+
           BALANCE_LAMPORTS="$(solana balance "$ADDRESS" --lamports | awk '{print $1}')"
+          echo "Devnet payer balance after stale-buffer cleanup: ${BALANCE_LAMPORTS} lamports"
+
+          for attempt in 1 2 3 4 5; do
+            if [ "$BALANCE_LAMPORTS" -ge "$MIN_LAMPORTS" ]; then
+              break
+            fi
+            echo "Requesting a small 0.25 SOL devnet faucet top-up (attempt $attempt)..."
+            solana airdrop 0.25 "$ADDRESS" --url https://api.devnet.solana.com || true
+            sleep 5
+            BALANCE_LAMPORTS="$(solana balance "$ADDRESS" --lamports | awk '{print $1}')"
+          done
+
           echo "Devnet payer balance before deploy: ${BALANCE_LAMPORTS} lamports"
           test "$BALANCE_LAMPORTS" -ge "$MIN_LAMPORTS"
 
