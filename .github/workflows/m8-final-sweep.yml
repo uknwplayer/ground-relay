@@ -1,0 +1,127 @@
+name: M8 final quality sweep
+
+# Final rerun also verifies the completed M8 documentation handoff.
+on:
+  push:
+    branches: ["m8-product-hardening"]
+    paths:
+      - ".github/workflows/m8-final-sweep.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Mobile tests and typecheck
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm run typecheck
+
+      - name: Gateway tests and deterministic demo
+        run: |
+          npm ci --prefix gateway --no-audit --no-fund
+          npm test --prefix gateway
+          npm run demo --prefix gateway
+
+      - name: Anchor host tests
+        run: cargo test --workspace
+
+      - name: Repository hygiene audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          import subprocess
+
+          failures = []
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+
+          active_source = []
+          for raw in tracked:
+              path = Path(raw)
+              if raw == 'App.tsx' or raw.startswith(('src/', 'gateway/', 'programs/')):
+                  if path.suffix in {'.ts', '.tsx', '.js', '.mjs', '.rs'}:
+                      active_source.append(path)
+
+          canonical_task_id = 'e335a4ea1f23a002db02f94c371d311b5b46fa908a7f2f6c9f72e60ea122f662'
+          forbidden_runtime_symbols = [
+              'GROUND_RELAY_TASK_ADDRESS',
+              'GROUND_RELAY_VAULT_ADDRESS',
+              'GROUND_RELAY_WORKER_TOKEN_ADDRESS',
+              'GROUND_RELAY_POSTER_ADDRESS',
+              'GROUND_RELAY_FIXTURE_TASK_ID',
+          ]
+
+          for path in active_source:
+              text = path.read_text()
+              if canonical_task_id in text:
+                  failures.append(f'historical canonical task id remains in active source: {path}')
+              for symbol in forbidden_runtime_symbols:
+                  if symbol in text:
+                      failures.append(f'historical runtime fixture symbol {symbol} remains in: {path}')
+              if re.search(r'\b(TODO|FIXME)\b', text):
+                  failures.append(f'TODO/FIXME remains in active source: {path}')
+
+          if 'src/demo/task.ts' in tracked:
+              failures.append('legacy src/demo/task.ts is still tracked')
+
+          readme = Path('README.md').read_text()
+          for phrase in [
+              'Generic arbitrary-task payout remains deliberately fail-closed',
+              'Callback URL validation is centralized; production SSRF/allowlist hardening remains M8 work.',
+              'M8 as a whole remains active',
+          ]:
+              if phrase in readme:
+                  failures.append(f'stale README claim: {phrase}')
+          if '**M8 is complete on `m8-product-hardening`.**' not in readme:
+              failures.append('README does not mark M8 complete on the working branch')
+
+          current = Path('docs/checkpoints/CURRENT.md').read_text()
+          if '**Stage:** M9 — release/submission preparation' not in current:
+              failures.append('CURRENT checkpoint has not advanced to M9')
+          if 'M8 product hardening is complete on the working branch.' not in current:
+              failures.append('CURRENT checkpoint does not state M8 completion')
+
+          roadmap = Path('docs/roadmap.md').read_text()
+          if '**Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Complete.**' not in roadmap:
+              failures.append('roadmap does not mark the M8 exit condition complete')
+
+          completion_record = Path('docs/checkpoints/archive/2026-09-27-m8-complete.md')
+          if not completion_record.exists() or 'M8 is complete on `m8-product-hardening`.' not in completion_record.read_text():
+              failures.append('M8 completion checkpoint is missing or incomplete')
+
+          seed = json.loads(Path('gateway/data/state.json').read_text())
+          proof = seed.get('tasks', {}).get('m8-physical-2026-09-27-v1')
+          if not proof or proof.get('status') != 'paid':
+              failures.append('hosted M8 physical seed is not terminal PAID')
+          elif proof.get('worker') != '7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C':
+              failures.append('hosted M8 physical seed worker mismatch')
+          elif proof.get('evidenceHash') != '87c1f0a74d733d3f7e197dc8eb2319bbcd1e55eadef00a4db7c84e64124aeed1':
+              failures.append('hosted M8 physical seed evidence mismatch')
+
+          secret_name = re.compile(r'(^|/)(\.env($|\.)|id\.json$|.*keypair.*\.json$|.*secret.*\.json$)', re.I)
+          for raw in tracked:
+              if secret_name.search(raw):
+                  failures.append(f'suspicious tracked secret/key filename: {raw}')
+
+          if failures:
+              print('M8 final hygiene audit: FAIL')
+              for failure in failures:
+                  print(f'- {failure}')
+              raise SystemExit(1)
+
+          print('M8 final hygiene audit: PASS')
+          print(f'Checked {len(active_source)} tracked active-source files and {len(tracked)} tracked repository files.')
+          PY

@@ -2,7 +2,7 @@ name: IDL client consistency
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "m8-*"]
     paths:
       - "idl/ground_relay.json"
       - "src/solana/ground-relay.ts"

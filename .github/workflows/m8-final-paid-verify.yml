@@ -1,0 +1,23 @@
+name: M8 final paid verify
+
+on:
+  push:
+    branches: ["m8-*"]
+    paths:
+      - "scripts/devnet-fixture/verify-m8-paid.cjs"
+      - ".github/workflows/m8-final-paid-verify.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install fixture client dependencies
+        run: npm install --prefix scripts/devnet-fixture --no-audit --no-fund
+      - name: Verify exact M8 paid transaction
+        run: node scripts/devnet-fixture/verify-m8-paid.cjs

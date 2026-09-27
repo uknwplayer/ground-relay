@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
-    self, Mint, TokenAccount, TokenInterface, TransferChecked,
+    self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 
 declare_id!("6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap");
@@ -20,6 +20,10 @@ pub mod ground_relay {
             expires_at > Clock::get()?.unix_timestamp,
             RelayError::InvalidExpiry
         );
+        validate_new_escrow_mint_policy(
+            ctx.accounts.token_program.key(),
+            ctx.accounts.mint.freeze_authority.is_some(),
+        )?;
 
         let task = &mut ctx.accounts.task;
         task.task_id = task_id;
@@ -33,6 +37,7 @@ pub mod ground_relay {
         task.bump = ctx.bumps.task;
         task.vault_bump = ctx.bumps.vault;
 
+        let vault_before = ctx.accounts.vault.amount;
         let decimals = ctx.accounts.mint.decimals;
         let cpi_accounts = TransferChecked {
             mint: ctx.accounts.mint.to_account_info(),
@@ -45,6 +50,8 @@ pub mod ground_relay {
             reward_amount,
             decimals,
         )?;
+        ctx.accounts.vault.reload()?;
+        validate_exact_credit(vault_before, ctx.accounts.vault.amount, reward_amount)?;
 
         emit!(TaskPosted {
             task: task.key(),
@@ -77,7 +84,12 @@ pub mod ground_relay {
         evidence_hash: [u8; 32],
     ) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        validate_submit(task, ctx.accounts.worker.key(), evidence_hash)?;
+        validate_submit_at(
+            task,
+            ctx.accounts.worker.key(),
+            evidence_hash,
+            Clock::get()?.unix_timestamp,
+        )?;
 
         task.evidence_hash = evidence_hash;
         task.status = TaskStatus::Delivered;
@@ -124,6 +136,7 @@ pub mod ground_relay {
             &bump,
         ];
         let signer = &[signer_seeds];
+        let worker_token_before = ctx.accounts.worker_token.amount;
 
         let cpi_accounts = TransferChecked {
             mint: ctx.accounts.mint.to_account_info(),
@@ -136,6 +149,12 @@ pub mod ground_relay {
                 .with_signer(signer),
             task.reward_amount,
             ctx.accounts.mint.decimals,
+        )?;
+        ctx.accounts.worker_token.reload()?;
+        validate_exact_credit(
+            worker_token_before,
+            ctx.accounts.worker_token.amount,
+            task.reward_amount,
         )?;
 
         task.status = TaskStatus::Paid;
@@ -152,7 +171,54 @@ pub mod ground_relay {
 
     pub fn cancel_open_task(ctx: Context<CancelOpenTask>) -> Result<()> {
         let task = &mut ctx.accounts.task;
-        validate_cancel(
+        validate_cancel_at(
+            task,
+            ctx.accounts.poster.key(),
+            ctx.accounts.vault.amount,
+            Clock::get()?.unix_timestamp,
+        )?;
+
+        let poster_key = task.poster;
+        let task_id = task.task_id;
+        let bump = [task.bump];
+        let signer_seeds: &[&[u8]] = &[
+            b"task",
+            poster_key.as_ref(),
+            task_id.as_ref(),
+            &bump,
+        ];
+        let signer = &[signer_seeds];
+        let poster_token_before = ctx.accounts.poster_token.amount;
+
+        let cpi_accounts = TransferChecked {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.poster_token.to_account_info(),
+            authority: task.to_account_info(),
+        };
+        token_interface::transfer_checked(
+            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
+                .with_signer(signer),
+            task.reward_amount,
+            ctx.accounts.mint.decimals,
+        )?;
+        ctx.accounts.poster_token.reload()?;
+        validate_exact_credit(
+            poster_token_before,
+            ctx.accounts.poster_token.amount,
+            task.reward_amount,
+        )?;
+
+        task.status = TaskStatus::Cancelled;
+
+        emit!(TaskCancelled { task: task.key() });
+
+        Ok(())
+    }
+
+    pub fn close_terminal_vault(ctx: Context<CloseTerminalVault>) -> Result<()> {
+        let task = &ctx.accounts.task;
+        validate_terminal_vault_close(
             task,
             ctx.accounts.poster.key(),
             ctx.accounts.vault.amount,
@@ -169,22 +235,20 @@ pub mod ground_relay {
         ];
         let signer = &[signer_seeds];
 
-        let cpi_accounts = TransferChecked {
-            mint: ctx.accounts.mint.to_account_info(),
-            from: ctx.accounts.vault.to_account_info(),
-            to: ctx.accounts.poster_token.to_account_info(),
+        let cpi_accounts = CloseAccount {
+            account: ctx.accounts.vault.to_account_info(),
+            destination: ctx.accounts.poster.to_account_info(),
             authority: task.to_account_info(),
         };
-        token_interface::transfer_checked(
+        token_interface::close_account(
             CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts)
                 .with_signer(signer),
-            task.reward_amount,
-            ctx.accounts.mint.decimals,
         )?;
 
-        task.status = TaskStatus::Cancelled;
-
-        emit!(TaskCancelled { task: task.key() });
+        emit!(VaultClosed {
+            task: task.key(),
+            poster: task.poster,
+        });
 
         Ok(())
     }
@@ -210,6 +274,17 @@ fn validate_submit(
         evidence_hash != [0; 32],
         RelayError::InvalidEvidenceHash
     );
+    Ok(())
+}
+
+pub fn validate_submit_at(
+    task: &TaskEscrow,
+    worker: Pubkey,
+    evidence_hash: [u8; 32],
+    now: i64,
+) -> Result<()> {
+    validate_submit(task, worker, evidence_hash)?;
+    require!(now < task.expires_at, RelayError::TaskExpired);
     Ok(())
 }
 
@@ -249,6 +324,81 @@ fn validate_cancel(task: &TaskEscrow, poster: Pubkey, vault_amount: u64) -> Resu
         RelayError::EscrowUnderfunded
     );
     Ok(())
+}
+
+pub fn validate_cancel_at(
+    task: &TaskEscrow,
+    poster: Pubkey,
+    vault_amount: u64,
+    now: i64,
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Open || task.status == TaskStatus::Claimed,
+        RelayError::InvalidStatus
+    );
+    if task.status == TaskStatus::Claimed {
+        require!(now >= task.expires_at, RelayError::TaskNotExpired);
+    }
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    require!(
+        vault_amount >= task.reward_amount,
+        RelayError::EscrowUnderfunded
+    );
+    Ok(())
+}
+
+pub fn validate_terminal_vault_close(
+    task: &TaskEscrow,
+    poster: Pubkey,
+    vault_amount: u64,
+) -> Result<()> {
+    require!(
+        task.status == TaskStatus::Paid || task.status == TaskStatus::Cancelled,
+        RelayError::InvalidStatus
+    );
+    require_keys_eq!(task.poster, poster, RelayError::WrongPoster);
+    require!(vault_amount == 0, RelayError::VaultNotEmpty);
+    Ok(())
+}
+
+fn validate_exact_credit(before: u64, after: u64, expected: u64) -> Result<()> {
+    require!(after >= before, RelayError::TokenCreditMismatch);
+    require!(
+        after - before == expected,
+        RelayError::TokenCreditMismatch
+    );
+    Ok(())
+}
+
+pub fn validate_new_escrow_mint_policy(
+    token_program: Pubkey,
+    has_freeze_authority: bool,
+) -> Result<()> {
+    require_keys_eq!(
+        token_program,
+        anchor_spl::token::ID,
+        RelayError::UnsupportedTokenProgram
+    );
+    require!(
+        !has_freeze_authority,
+        RelayError::FreezeAuthorityPresent
+    );
+    Ok(())
+}
+
+pub fn is_canonical_task(task_key: Pubkey, task: &TaskEscrow) -> bool {
+    let bump = [task.bump];
+    Pubkey::create_program_address(
+        &[
+            b"task",
+            task.poster.as_ref(),
+            task.task_id.as_ref(),
+            &bump,
+        ],
+        &crate::ID,
+    )
+    .map(|expected| expected == task_key)
+    .unwrap_or(false)
 }
 
 #[derive(Accounts)]
@@ -296,7 +446,10 @@ pub struct ClaimTask<'info> {
     #[account(mut)]
     pub worker: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -304,7 +457,10 @@ pub struct ClaimTask<'info> {
 pub struct SubmitEvidence<'info> {
     pub worker: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -312,7 +468,10 @@ pub struct SubmitEvidence<'info> {
 pub struct AcceptTask<'info> {
     pub poster: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = is_canonical_task(task.key(), &task) @ RelayError::NonCanonicalTask
+    )]
     pub task: Account<'info, TaskEscrow>,
 }
 
@@ -385,6 +544,31 @@ pub struct CancelOpenTask<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
+#[derive(Accounts)]
+pub struct CloseTerminalVault<'info> {
+    #[account(
+        seeds = [b"task", task.poster.as_ref(), task.task_id.as_ref()],
+        bump = task.bump
+    )]
+    pub task: Account<'info, TaskEscrow>,
+
+    /// CHECK: constrained to the original poster and used only as the close destination.
+    #[account(mut, address = task.poster @ RelayError::WrongPoster)]
+    pub poster: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        token::authority = task,
+        token::token_program = token_program,
+        seeds = [b"vault", task.key().as_ref()],
+        bump = task.vault_bump,
+        constraint = vault.mint == task.mint @ RelayError::WrongMint
+    )]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct TaskEscrow {
@@ -451,6 +635,12 @@ pub struct TaskCancelled {
     pub task: Pubkey,
 }
 
+#[event]
+pub struct VaultClosed {
+    pub task: Pubkey,
+    pub poster: Pubkey,
+}
+
 #[error_code]
 pub enum RelayError {
     #[msg("Reward amount must be greater than zero")]
@@ -461,6 +651,8 @@ pub enum RelayError {
     InvalidStatus,
     #[msg("Task has expired")]
     TaskExpired,
+    #[msg("Task has not expired yet")]
+    TaskNotExpired,
     #[msg("Signer is not the assigned worker")]
     WrongWorker,
     #[msg("Signer is not the task poster")]
@@ -471,8 +663,17 @@ pub enum RelayError {
     InvalidEvidenceHash,
     #[msg("Escrow vault is underfunded")]
     EscrowUnderfunded,
+    #[msg("Terminal escrow vault must be empty before rent reclamation")]
+    VaultNotEmpty,
+    #[msg("Token transfer did not credit the exact expected amount")]
+    TokenCreditMismatch,
+    #[msg("Task account is not the canonical PDA for its stored poster and task id")]
+    NonCanonicalTask,
+    #[msg("New escrows require the classic SPL Token program")]
+    UnsupportedTokenProgram,
+    #[msg("New escrow mint must not have a freeze authority")]
+    FreezeAuthorityPresent,
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -551,5 +752,12 @@ mod tests {
 
         let claimed = sample_task(TaskStatus::Claimed);
         assert!(validate_cancel(&claimed, key(2), REWARD).is_err());
+    }
+
+    #[test]
+    fn exact_credit_requires_full_advertised_amount() {
+        assert!(validate_exact_credit(100, 1_100, 1_000).is_ok());
+        assert!(validate_exact_credit(100, 1_099, 1_000).is_err());
+        assert!(validate_exact_credit(100, 1_101, 1_000).is_err());
     }
 }

@@ -2,7 +2,7 @@ name: Anchor program CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "m8-*"]
     paths:
       - "Anchor.toml"
       - "Cargo.toml"

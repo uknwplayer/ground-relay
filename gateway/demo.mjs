@@ -58,7 +58,12 @@ export async function runSeededDemo({ quiet = false } = {}) {
       status: "open",
     };
     const chain = { readTask: async () => structuredClone(chainState) };
-    const callbackTransport = (input) => sendResumeCallback({ ...input, timeoutMs: 2_000 });
+    const callbackTransport = (input) =>
+      sendResumeCallback({
+        ...input,
+        timeoutMs: 2_000,
+        allowLoopbackHttp: true,
+      });
     const noRetryScheduler = { schedule: () => () => {} };
 
     const store = createJsonStore({ statePath });
@@ -73,16 +78,22 @@ export async function runSeededDemo({ quiet = false } = {}) {
       programId: GROUND_RELAY_PROGRAM_ID,
     });
 
-    await service.createTask({
-      id: taskId,
-      title: "Verify a storefront sign",
-      description: "A blocked autonomous agent needs one human visual verification.",
-      poster,
-      rewardAtomic,
-      rewardMint,
-      callbackUrl: receiver.callbackUrl,
-      criteria: [{ id: "photo", description: "Capture one clear photo", required: true }],
-    }, { idempotencyKey: "seeded-create" });
+    await service.createTask(
+      {
+        id: taskId,
+        title: "Verify a storefront sign",
+        description:
+          "A blocked autonomous agent needs one human visual verification.",
+        poster,
+        rewardAtomic,
+        rewardMint,
+        callbackUrl: receiver.callbackUrl,
+        criteria: [
+          { id: "photo", description: "Capture one clear photo", required: true },
+        ],
+      },
+      { idempotencyKey: "seeded-create" },
+    );
 
     await service.bindTask(taskId, {
       cluster: "devnet",
@@ -98,7 +109,9 @@ export async function runSeededDemo({ quiet = false } = {}) {
       evidenceHash,
     };
 
-    const paid = await service.notifyPaid(taskId, { signature: settlementSignature });
+    const paid = await service.notifyPaid(taskId, {
+      signature: settlementSignature,
+    });
     const callbackCount = receiver.received.length;
 
     const restartedStore = createJsonStore({ statePath });
@@ -113,7 +126,9 @@ export async function runSeededDemo({ quiet = false } = {}) {
       programId: GROUND_RELAY_PROGRAM_ID,
     });
     await restartedService.start();
-    await restartedService.notifyPaid(taskId, { signature: settlementSignature });
+    await restartedService.notifyPaid(taskId, {
+      signature: settlementSignature,
+    });
 
     const proof = {
       taskId,
@@ -137,7 +152,9 @@ export async function runSeededDemo({ quiet = false } = {}) {
   }
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isDirect =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirect) {
   await runSeededDemo();
 }

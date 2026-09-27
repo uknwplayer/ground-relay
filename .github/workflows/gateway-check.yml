@@ -2,7 +2,7 @@ name: Gateway check
 
 on:
   push:
-    branches: ["main", "m7-*"]
+    branches: ["main", "m7-*", "m8-*"]
     paths:
       - "gateway/**"
       - "README.md"

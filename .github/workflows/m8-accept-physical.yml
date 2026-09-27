@@ -1,0 +1,45 @@
+name: M8 accept physical task
+
+on:
+  push:
+    branches: ["m8-*"]
+    paths:
+      - "scripts/devnet-fixture/m8-accept-trigger.txt"
+  workflow_dispatch:
+
+concurrency:
+  group: ground-relay-m8-physical-accept
+  cancel-in-progress: false
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: devnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Restore controlled poster keypair
+        env:
+          DEPLOYER_B64: ${{ secrets.GROUND_RELAY_DEVNET_DEPLOYER_KEYPAIR_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_B64"
+          umask 077
+          printf '%s' "$DEPLOYER_B64" | base64 --decode > /tmp/ground-relay-poster.json
+
+      - name: Install fixture client dependencies
+        run: npm install --prefix scripts/devnet-fixture --no-audit --no-fund
+
+      - name: Accept fresh M8 physical task
+        env:
+          POSTER_KEYPAIR: /tmp/ground-relay-poster.json
+          GATEWAY_BASE_URL: https://ground-relay-agent-gateway-m8.onrender.com/v1
+        run: node scripts/devnet-fixture/accept-m8-physical.cjs
+
+      - name: Remove key material
+        if: always()
+        run: rm -f /tmp/ground-relay-poster.json
