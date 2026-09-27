@@ -3,19 +3,22 @@
 **UTC date:** 2026-09-27  
 **Stage:** M9 — release/submission preparation  
 **Repository:** `uknwplayer/ground-relay`  
-**Working branch:** `m8-product-hardening` pending integration into `main`
+**Working branch:** `m9-release-submission`  
+**M8 merge commit on `main`:** `ffcb9b7d69e159ec05fd11139b02bbb442099299`
 
 ## Current state
 
-M8 product hardening is complete on the working branch.
+M0 through M8 are complete. M8 was merged through PR #3 into `main`.
 
-Ground Relay has physically proved the hardened loop on a fresh, non-canonical Solana devnet task:
+M9 release provenance, physical clean-install, public screenshot, pitch deck, and narrated 90-second demo master are complete. The exact post-M8 Android release candidate was built from the integrated `main` commit and physically installed on Android. The app connected the worker wallet, discovered the completed proof task, reconciled the exact selected PDA against Solana devnet, displayed authoritative `PAID`, and kept the historical task read-only.
 
-`hosted inbox -> select -> claim -> restart/recovery -> camera evidence -> DELIVERED -> poster ACCEPTED -> generic verified payout -> PAID reconciliation`
+Ground Relay has therefore proved both the full hardened lifecycle and the release-candidate recovery/read path:
 
-The proof also exercised a real post-wallet DNS/RPC failure. The payout had already reached Solana; the app did not replay the transaction, independent chain verification found `PAID`, and the Android UI later reconciled to the terminal paid receipt after network recovery.
+`agent blocked -> funded task -> worker claims -> camera evidence -> verifier accepts -> escrow pays worker -> agent resumes`
 
-M5, M6, M7, and M8 are complete. M7 is already merged into `main`. M8 is fully verified on `m8-product-hardening`; integration into `main` is the next human-controlled branch decision before normal M9 release work proceeds.
+Physical task lifecycle:
+
+`OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`
 
 ## Controlled devnet identity
 
@@ -23,37 +26,17 @@ Program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
-Controlled upgrade/deployer/poster:
-
-`6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
-
-Canonical ProgramData:
+ProgramData:
 
 `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
 
-Do not regenerate the program identity or replace deployment Secrets.
+Current work remains devnet-only. No mainnet deployment is authorized by this checkpoint.
 
-## Hardened deployment evidence
+## Hardened physical proof
 
-- Anchor SBF + IDL run `36288500115` — PASS
-- IDL client consistency `36289499220` — PASS
-- hardened upgrade run `36294101421`, attempt 2 — PASS
-- upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
-- independent post-deploy preflight `36296153445`, attempt 2 — PASS
-- independently observed last deployed slot `504672943`
-- Program ID and ProgramData identity remained unchanged
-
-No mainnet deployment is authorized or implied by this checkpoint.
-
-## Fresh M8 physical proof
-
-Gateway task ID:
+Task ID:
 
 `m8-physical-2026-09-27-v1`
-
-Task ID hex:
-
-`43708dffc89099253d8ac7dce7ac1b70fcc0bdd6b7498051bcbae2dc908a77b8`
 
 Task PDA:
 
@@ -67,14 +50,6 @@ Worker:
 
 `7XY6t1adc9vmuefiEP25TsoEjxRkFhVxT4yQrtN5zr2C`
 
-Worker WSOL ATA:
-
-`2fm8p8DpCeJvcpvNbCpzURRezQthF2z2yQARLgPgZfu6`
-
-Reward mint:
-
-`So11111111111111111111111111111111111111112`
-
 Reward:
 
 `1,000,000` atomic = `0.001 WSOL`
@@ -83,131 +58,151 @@ Evidence SHA-256:
 
 `87c1f0a74d733d3f7e197dc8eb2319bbcd1e55eadef00a4db7c84e64124aeed1`
 
-Acceptance signature:
-
-`2e9xNS5DxU1a6i6cXYpWMHvWqsyGHkvLZtpUM74wmQQJh581BzJSd6fLcgm2yL7accFb3uap8mjbCSE8AfPpRC1C`
-
 Payout signature:
 
 `UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
 
-Payout slot:
+Independent payout audit:
 
-`504746194`
+- worker WSOL: `1,000,000 -> 2,000,000` atomic;
+- worker delta: `+1,000,000` atomic;
+- vault: `1,000,000 -> 0` atomic;
+- authoritative task state: `PAID`;
+- verification run `36311952353` — PASS.
 
-Exact payout verification:
+## Release candidate — VERIFIED ON DEVICE
 
-- worker WSOL before: `1,000,000`
-- worker WSOL after: `2,000,000`
-- worker delta: `+1,000,000`
-- vault before: `1,000,000`
-- vault after: `0`
-- authoritative task state: `PAID`
+Source commit:
 
-Verification run `36311952353` — PASS.
+`ffcb9b7d69e159ec05fd11139b02bbb442099299`
 
-Detailed records:
+Android build:
 
-- `docs/checkpoints/archive/2026-09-27-m8-physical-paid.md`
-- `docs/checkpoints/archive/2026-09-27-m8-complete.md`
+`36329825769` — PASS
 
-## Hosted Gateway / Android evidence
+Artifact:
 
-Hosted Gateway:
+`ground-relay-standalone-apk` (`10935757058`)
 
-`https://ground-relay-agent-gateway-m8.onrender.com`
+APK SHA-256:
 
-Worker API:
+`cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`
+
+APK size:
+
+`114,098,915` bytes
+
+Worker API embedded in the release candidate:
 
 `https://ground-relay-agent-gateway-m8.onrender.com/v1`
 
-Evidence:
+Physical clean-install result:
 
-- listener RED/GREEN: `36302895258` / `36302967162`
-- hosted smoke `36303711875` — PASS
-- fresh task create/bind `36303227689` — PASS
-- hosted-Gateway Android APK `36303092998` — PASS
-- poster acceptance `36311385406` — PASS
-- post-device-failure paid-state verification `36311843338` — PASS
-- exact payout verification `36311952353` — PASS
-- final Android reconciliation: `PAID`
+- fresh Ground Relay installation opened successfully;
+- MWA-compatible worker wallet connected;
+- completed hosted task was discoverable;
+- exact PDA reconciled against Solana devnet;
+- authoritative state displayed as `PAID`;
+- escrow-paid receipt displayed;
+- no historical payment action was reissued.
 
-The persisted physical-proof Gateway seed is terminalized as `PAID`; a cold start must not re-advertise it as fresh work.
+Detailed device gate:
 
-## Recovery regression fixed during M8
+`docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md`
 
-During payout, the Android device lost DNS resolution for `api.devnet.solana.com` after the wallet transaction had already reached Solana. The app correctly locked further actions, but the selected-task badge could fall back to stale Gateway `OPEN` state while the authoritative RPC read was unavailable.
+## Public screenshot decision
 
-Fix:
+The earlier clean-install proof screenshot remains private verification evidence.
 
-- selected-task status/worker display only from authoritative Solana state;
-- unavailable RPC presents an unreconciled/unknown state instead of stale Gateway state;
-- state-changing actions remain fail-closed.
+A separate, deliberate Android screenshot was then captured for public submission use and approved. It shows Ground Relay branding, the truncated worker wallet, `PAID`, reward amount, task title, selected PDA summary, authoritative worker line, `ESCROW PAID · DEVNET`, and restart-safety copy, without raw evidence content or unrelated notifications.
 
-Regression evidence:
+Use only this dedicated public capture for submission materials. Cosmetic cropping of Android system chrome is allowed; do not alter app content or fabricate state.
 
-- RED run `36312405844`
-- GREEN run `36312595528`
+Screenshot guidance:
 
-## Runtime / cold-start cleanup
+`docs/screenshots.md`
 
-M8 closeout removed the historical canonical proof fixture from active runtime paths and deleted the obsolete `src/demo/task.ts`. Historical values remain only where explicitly useful as test vectors or documentation evidence.
+## Pitch deck — COMPLETE
 
-The hosted physical-proof seed was terminalized as `PAID` with the verified worker/evidence hash.
+The final judge-facing deck was generated from `docs/pitch-deck-outline.md` as an 8-slide 16:9 presentation and rendered/checked for overflow.
 
-Cleanup commit:
+Binary handoff artifacts produced outside git:
 
-`63fcfdc58a3a2aaa4758277eec111e7b0b774cb8`
+- `ground-relay-pitch-deck-m9.pptx`
+- `ground-relay-pitch-deck-m9.pdf`
 
-## Consolidated M8 completion gate
+The repository retains the editable narrative source in `docs/pitch-deck-outline.md`.
 
-Workflow:
+## Demo video — FINAL MASTER COMPLETE
 
-`M8 final quality sweep`
+A publication-safe Android screen recording was reviewed frame-by-frame. The non-app opening was removed, Android system chrome was cropped from the public mobile clip, and device ambient audio was discarded.
 
-Run:
+Public mobile clip:
 
-`36313234829`
+- duration: `37.0s`
+- SHA-256: `ebb80705aee7f9b8c3ce0aa3c25f71117b24306ad8965d22228a4070ebdb2e2c`
+- content: authoritative `PAID`, refresh/reconciliation, receipt history, return to terminal task state
 
-Result:
+A 16:9 visual cut was assembled from the final deck plus the reviewed Android clip and then mixed with a professional English narration derived from the final Ground Relay demo script.
 
-**PASS**
+Final demo master:
 
-Fresh verification from that single run:
+- filename: `ground-relay-demo-90s-final.mp4`
+- duration: `90.0s`
+- resolution: `1920x1080`
+- frame rate: `30 fps`
+- video: H.264
+- audio: AAC stereo, `48 kHz`, `192 kbps`
+- narration source duration: `56.935s`
+- device ambient audio: not retained
+- SHA-256: `e3677b90103c37cf57f56057feed787dc156b2dab1679377b1b31d968a2e208d`
 
-- root mobile tests: `106/106` PASS;
-- TypeScript typecheck: PASS;
-- Gateway tests: `63/63` PASS;
-- deterministic Gateway resume demo: PASS;
-- Anchor/Rust workspace tests: PASS;
-- repository hygiene audit: PASS;
-- hygiene checked `41` tracked active-source files and `128` tracked repository files.
+The approved master was uploaded to Google Drive with stable file ID `1WVVwYWnvEmRWtLEj9Adk2Zwx1angzDFy` and the stable viewer URL is now present in `docs/submission-copy.md`. An external anonymous-access check has not yet succeeded, so public link permission still needs to be confirmed before submission.
 
-This satisfies the final M8 exit gate.
+## Reviewer/submission package now present
 
-## Historical fixture policy
+- `docs/release-candidate.md` — APK provenance and hashes
+- `docs/reviewer-verification.md` — independent reviewer checks
+- `docs/architecture.md` — current hardened architecture
+- `docs/product-anatomy.md` — product/actor/trust model
+- `docs/submission-copy.md` — hackathon copy and final demo URL
+- `docs/demo-script.md` — 90-second narration/recording script
+- `docs/screenshots.md` — screenshot plan and privacy rules
+- `docs/pitch-deck-outline.md` — judge-facing deck narrative source
 
-The first canonical physical task is historical audit evidence only. Do not reset it, recreate it, or use it as a generic execution fallback.
+## M8/M9 verification highlights
+
+- M8 final quality sweep `36313234829` — PASS
+- mobile tests `106/106` — PASS
+- Gateway tests `63/63` — PASS
+- TypeScript typecheck — PASS
+- Anchor/Rust workspace tests — PASS
+- repository hygiene audit — PASS
+- post-merge Android release build `36329825769` — PASS
+- physical clean-install/reconciliation — PASS
+- final pitch deck render/overflow check — PASS
+- public mobile recording privacy/timing review — PASS
+- 90-second visual cut duration/render check — PASS
+- final narrated master duration/stream/hash audit — PASS
+- M9 branch vs `main`: documentation/checkpoint changes only — PASS
 
 ## Do not repeat
 
-- Do **not** run devnet identity bootstrap again.
-- Do **not** regenerate the program keypair.
-- Do **not** overwrite deployment GitHub Secrets.
-- Do **not** reset/recreate either paid physical proof task.
-- Do **not** retry the M8 physical payout; it is already confirmed `PAID`.
-- Do **not** treat Gateway/cache state as transaction authorization.
-- Do **not** commit keys, seed phrases, wallet secrets, or auth tokens.
-- Do **not** make the Agent Gateway a custodial signer.
-- Do **not** describe HTTP callback transport as exactly-once.
-- Do **not** authorize mainnet deployment from this checkpoint.
+- Do not regenerate the program identity.
+- Do not overwrite deployment signing material.
+- Do not reset, recreate, claim, or repay completed proof tasks.
+- Do not use Gateway/cache state as transaction authorization.
+- Do not commit wallet secrets, credentials, or signing material.
+- Do not make the Agent Gateway a custodial signer.
+- Do not describe callback transport as exactly-once.
+- Do not infer mainnet readiness from devnet proof.
 
 ## Next recommended action
 
-Choose how to integrate `m8-product-hardening` into `main`. After integration, begin M9:
+The only remaining publication gate is anonymous access to the already-uploaded Drive video.
 
-1. build the final post-M8 release APK;
-2. verify fresh-device installation of the release candidate;
-3. collect reviewer-facing proof links and verification instructions;
-4. finalize demo video, pitch deck, screenshots, and submission copy;
-5. optionally add deep-link/QR handoff if it materially improves the submission experience.
+1. set the final video to `Anyone with the link` / viewer in Google Drive;
+2. verify the exact stable link opens without authentication;
+3. review the M9 pull request and its checks;
+4. merge M9 only after the public video link is confirmed;
+5. submit after repository, APK, screenshot, deck, and final video references are stable.

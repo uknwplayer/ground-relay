@@ -94,7 +94,7 @@ Post-merge Gateway check: `36249541738` — PASS.
 - [x] Versioned restart restoration with no automatic transaction replay.
 - [x] Evidence privacy policy and local-photo cleanup.
 - [x] Generic selected-task payout derivation and live token-account verification.
-- [x] Callback/SSRF hardening: DNS resolution, public-address checks, IP pinning, TLS hostname preservation, bounded/revalidated redirects.
+- [x] Callback/SSRF hardening with DNS/public-address validation, connection pinning, TLS hostname preservation, and redirect revalidation.
 - [x] Exact token-credit checks for funding, payout, and refund.
 - [x] Canonical task-PDA constraints.
 - [x] Classic SPL/no-freeze policy for new escrows.
@@ -102,11 +102,11 @@ Post-merge Gateway check: `36249541738` — PASS.
 - [x] Terminal empty-vault reclamation with rent returned only to the original poster.
 - [x] Current SBF/IDL consistency and hardened devnet deployment under the existing identity.
 - [x] Fresh non-canonical physical Android proof on the hardened deployment.
-- [x] Real wallet/network recovery exercise: payout reached Solana while the phone lost DNS access to the RPC; no transaction was replayed and final `PAID` reconciliation recovered after network restoration.
+- [x] Real wallet/network recovery exercise with no unsafe replay.
 - [x] Regression fix preventing stale Gateway `OPEN` state from being presented as authoritative during RPC failure.
 - [x] Historical runtime fixture/demo state retired; hosted physical-proof seed terminalized as `PAID`.
 - [x] Final consolidated mobile/Gateway/Anchor/hygiene quality sweep.
-- [ ] Deep-link/QR handoff — optional and deferred to M9 unless it materially improves submission UX.
+- [ ] Deep-link/QR handoff — optional and deferred unless it materially improves submission UX.
 
 ### M8 evidence
 
@@ -129,7 +129,7 @@ Hardened deployment:
 - hardened upgrade `36294101421`, attempt 2 — PASS
 - independent signer-free preflight `36296153445`, attempt 2 — PASS
 - Program ID unchanged: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- canonical ProgramData unchanged: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
+- ProgramData unchanged: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
 
 Fresh physical proof:
 
@@ -137,7 +137,7 @@ Fresh physical proof:
 - fresh task creation/binding `36303227689` — PASS
 - hosted-Gateway Android APK `36303092998` — PASS
 - acceptance `36311385406` — PASS
-- post-device-failure authoritative state check `36311843338` — PASS
+- authoritative paid-state check `36311843338` — PASS
 - exact payout verification `36311952353` — PASS
 - payout signature `UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
 - worker token delta `+1,000,000` atomic = `+0.001 WSOL`
@@ -146,8 +146,8 @@ Fresh physical proof:
 
 Network-recovery regression:
 
-- RED `36312405844` — stale-authority display test failed before fix
-- GREEN `36312595528` — mobile tests + typecheck PASS after fix
+- RED `36312405844`
+- GREEN `36312595528`
 
 Consolidated closeout:
 
@@ -157,25 +157,41 @@ Consolidated closeout:
 - TypeScript typecheck PASS
 - deterministic Gateway demo PASS
 - Anchor workspace host tests PASS
-- repository hygiene PASS across `41` tracked active-source files / `128` tracked files
+- repository hygiene PASS
 
 Detailed completion record: `docs/checkpoints/archive/2026-09-27-m8-complete.md`.
+
+M8 merged through PR #3 into `main` at `ffcb9b7d69e159ec05fd11139b02bbb442099299`.
 
 **Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Complete.**
 
 ## M9 — Release and hackathon submission
 
-- [~] Integrate the completed M8 branch into `main` using the chosen review/merge path.
-- [ ] Produce the final installable APK from the post-M8 integrated state.
-- [ ] Verify fresh-device installation of the release candidate.
-- [ ] Record final public proof links and reviewer-facing verification instructions.
-- [ ] Final README/architecture polish for submission.
-- [ ] 90-second demo video.
-- [ ] Pitch deck.
-- [ ] Submission copy and screenshots.
-- [ ] Optional deep-link/QR handoff if it improves the demo.
+- [x] Integrate completed M8 work into `main` through reviewed PR #3.
+- [x] Produce final installable APK from the post-M8 integrated state.
+- [x] Verify physical clean installation of the release candidate and authoritative `PAID` reconciliation.
+- [x] Record APK provenance, artifact digest, SHA-256, and reviewer verification instructions.
+- [x] Update hardened architecture documentation for reviewers.
+- [x] Draft final hackathon submission copy.
+- [x] Polish the 90-second demo script and shot sequence.
+- [x] Define publication-safe screenshot plan.
+- [x] Define judge-facing pitch deck structure.
+- [~] Final README reviewer start-here polish.
+- [ ] Produce publication-safe screenshots/assets.
+- [ ] Produce final pitch deck from the approved outline.
+- [ ] Record/edit the 90-second demo video.
+- [ ] Optional deep-link/QR handoff if it materially improves the demo.
 - [ ] Optional Solana dApp Store readiness work if useful.
-- [ ] Submit only after repository, APK, video, deck, and proof links are final.
+- [ ] Run final submission audit and submit only after repository, APK, video, deck, screenshots, and proof links are final.
+
+Release candidate evidence:
+
+- source commit `ffcb9b7d69e159ec05fd11139b02bbb442099299`
+- Android build `36329825769` — PASS
+- artifact `10935757058`
+- APK SHA-256 `cc4074f1dde807f9396e3aaf1a8bdb17d45cbc3bb568fd2ebad2bdfc58e09de4`
+- physical clean-install/reconciliation — PASS
+- device gate record `docs/checkpoints/archive/2026-09-27-m9-release-candidate-device-pass.md`
 
 **Exit condition:** a reviewer can install or inspect the project, understand it quickly, and independently verify the devnet proof.
 
