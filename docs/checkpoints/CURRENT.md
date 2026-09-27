@@ -122,6 +122,30 @@ Screenshot guidance:
 
 `docs/screenshots.md`
 
+## Pitch deck — COMPLETE
+
+The final judge-facing deck was generated from `docs/pitch-deck-outline.md` as an 8-slide 16:9 presentation and rendered/checked for overflow.
+
+Deck flow:
+
+1. Ground Relay / value proposition
+2. human-only blocker problem
+3. funded task loop
+4. why Solana Mobile
+5. three-component architecture and trust boundary
+6. real Android physical proof and exact payout numbers
+7. real DNS/RPC ambiguity recovery proof
+8. concrete use cases and closing statement
+
+The public Android `PAID` screenshot is used as the physical proof visual. The deck labels all current chain evidence as devnet proof and does not claim mainnet readiness.
+
+Binary handoff artifacts produced outside git:
+
+- `ground-relay-pitch-deck-m9.pptx`
+- `ground-relay-pitch-deck-m9.pdf`
+
+The repository retains the editable narrative source in `docs/pitch-deck-outline.md`.
+
 ## Reviewer/submission package now present
 
 - `docs/release-candidate.md` — APK provenance and hashes
@@ -131,7 +155,7 @@ Screenshot guidance:
 - `docs/submission-copy.md` — hackathon copy
 - `docs/demo-script.md` — 90-second recording script
 - `docs/screenshots.md` — screenshot plan and privacy rules
-- `docs/pitch-deck-outline.md` — judge-facing deck structure
+- `docs/pitch-deck-outline.md` — judge-facing deck narrative source
 
 ## M8/M9 verification highlights
 
@@ -143,6 +167,7 @@ Screenshot guidance:
 - repository hygiene audit — PASS
 - post-merge Android release build `36329825769` — PASS
 - physical clean-install/reconciliation — PASS
+- final pitch deck render/overflow check — PASS
 
 ## Do not repeat
 
@@ -157,11 +182,12 @@ Screenshot guidance:
 
 ## Next recommended action
 
-Finish the presentation layer without changing settlement behavior:
+The next human-controlled gate is the 90-second demo recording.
 
-1. create the final judge-facing deck from `docs/pitch-deck-outline.md`;
-2. record/edit the 90-second demo using `docs/demo-script.md`;
-3. place the approved public screenshot into the submission media package;
-4. fill the actual hackathon submission form with `docs/submission-copy.md`;
-5. run one final documentation/link/release audit;
-6. submit only after the public screenshot, video, deck, repository, and APK references are final.
+Use `docs/demo-script.md` and the final deck as the visual backbone. Record only publication-safe app footage/evidence. After the recording exists:
+
+1. review timing and privacy frame-by-frame;
+2. place the final video URL into the submission copy;
+3. run one final documentation/link/release audit;
+4. open the M9 PR for review;
+5. submit only after repository, APK, screenshot, deck, and video references are final.
