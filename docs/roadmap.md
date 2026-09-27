@@ -10,25 +10,25 @@ This roadmap tracks the path from the proven prototype to a repeatable, hackatho
 
 ## M0 — Project foundation
 
-- [x] Public repository, Android/Expo/React Native baseline, Solana devnet development target, CI, and standalone APK workflow.
+- [x] Public repository, Android/Expo/React Native baseline, Solana devnet target, CI, and standalone APK workflow.
 
 **Exit condition:** reproducible repository and Android build foundation. **Complete.**
 
 ## M1 — Mobile human-in-the-loop prototype
 
-- [x] Physical Android Solflare connection through Mobile Wallet Adapter.
+- [x] Physical Android wallet connection through Mobile Wallet Adapter.
 - [x] Camera evidence capture and on-device SHA-256.
 - [x] Devnet claim/delivery receipts and visible task progression.
 
-**Exit condition:** physical-device wallet -> claim -> camera -> evidence hash -> delivery proof. **Complete.**
+**Exit condition:** physical wallet -> claim -> camera -> evidence hash -> delivery proof. **Complete.**
 
 ## M2 — Anchor escrow program readiness
 
-- [x] `post_task`, `claim_task`, `submit_evidence`, `accept_task`, `release_payment`, and `cancel_open_task`.
+- [x] `post_task`, `claim_task`, `submit_evidence`, `accept_task`, `release_payment`, and cancellation/recovery paths.
 - [x] Transition guard tests and reproducible SBF + IDL build.
-- [x] Controlled deployment identity, no private deployment material in git.
+- [x] Controlled deployment identity with no private deployment material in git.
 
-Controlled program ID:
+Program ID:
 
 `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
 
@@ -36,8 +36,8 @@ Controlled program ID:
 
 ## M3 — First real devnet deployment
 
-- [x] Anchor program deployed to devnet at the controlled program ID.
-- [x] Executability, upgrade authority, ownership, and deployment metadata verified.
+- [x] Anchor program deployed to devnet under the controlled program ID.
+- [x] Executability, ownership, upgrade authority, and deployment metadata independently verified.
 
 **Exit condition:** verifiably executable Ground Relay program on devnet. **Complete.**
 
@@ -46,22 +46,20 @@ Controlled program ID:
 - [x] Real funded WSOL task/vault fixture created and inspected on-chain.
 - [x] Repeatable fixture tooling without committed private keys.
 
-The canonical fixture later completed the lifecycle and is now historical `PAID` proof. It must not be reset or presented as a fresh OPEN task.
+The canonical fixture later completed its lifecycle and is historical `PAID` proof only.
 
 **Exit condition:** real funded on-chain escrow task. **Complete.**
 
 ## M5 — Mobile app -> Anchor integration
 
-- [x] Physical Android app reads the real task PDA and performs direct Anchor transitions.
+- [x] Physical Android app reads a task PDA and performs direct Anchor transitions.
 - [x] Camera bytes remain off-chain; SHA-256 is submitted through `submit_evidence`.
 - [x] MWA ambiguous-return reconciliation uses authoritative Solana state.
 - [x] Full physical lifecycle proved: `OPEN -> CLAIMED -> DELIVERED -> ACCEPTED -> PAID`.
 
-Physical payout:
+Historical physical payout signature:
 
 `4miSuLtKtHANH7Auv52FbQECCyiPc9gQioo5qENWS8izvyeQtHwPgMZad7W9GyGKJ9MzyYyUD8P6pW9qvM92kpEk`
-
-Independent post-payout inspection: run `36207197941`.
 
 **Exit condition:** physical Android performs direct Anchor transitions. **Complete.**
 
@@ -71,111 +69,100 @@ Independent post-payout inspection: run `36207197941`.
 - [x] Wrong-worker, wrong-poster, premature release, double payout, expired claim, cancel/refund, and post-cancel guards proved on devnet.
 - [x] Defense-in-depth mint/underfunding validators retained.
 
-Guard run: `36208008464`.
-
-Detailed record: `docs/checkpoints/archive/2026-09-26-m6-devnet-guards.md`.
+Guard run: `36208008464` — PASS.
 
 **Exit condition:** successful settlement plus critical adversarial/lifecycle paths. **Complete.**
 
 ## M7 — Agent Gateway and resume loop
 
-- [x] Durable task API, task <-> PDA binding, Solana-authoritative synchronization, restart persistence, and create idempotency.
+- [x] Durable task API, task ↔ PDA binding, Solana-authoritative synchronization, restart persistence, and create idempotency.
 - [x] Stable resume event ID / `Idempotency-Key` and persisted retry/backoff.
 - [x] Verified PAID callback semantics with at-least-once delivery until acknowledgement.
 - [x] Gateway remains non-custodial and stores no signing secrets.
 - [x] Deterministic blocked-agent -> paid task -> resume demo.
 
-M7 is merged into `main` at `42231293ed787d367d0db9d4e183daed6e9f979c`.
+M7 merged into `main` at `42231293ed787d367d0db9d4e183daed6e9f979c`.
 
 Post-merge Gateway check: `36249541738` — PASS.
-
-Detailed record: `docs/checkpoints/archive/2026-09-26-m7-agent-resume.md`.
 
 **Exit condition:** agent resumes only after authoritative paid settlement. **Complete.**
 
 ## M8 — Product hardening
 
-- [x] Gateway-backed worker-safe task inbox with selected-task PDA reconciliation.
-- [x] Dedicated selected-task receipt/history view distinguishing Solana-confirmed, cached-observation, and receipt-only data.
-- [~] Wallet/network recovery states — MWA ambiguity, Gateway outage, and Solana outage handling are implemented; final fresh-device exercise remains.
-- [x] Versioned restart/state restoration with no automatic transaction replay.
-- [ ] Deep-link/QR handoff — optional and deferred unless it materially improves the M8/M9 demo.
-- [x] Evidence privacy policy and local-photo retention cleanup.
-- [~] Security review — callback/SSRF, exact token credit, canonical task PDA enforcement, classic-SPL/no-freeze policy for new escrows, selected-task payout verification, claimed-task timeout recovery, terminal vault closure, and deployed-program parity are implemented and evidenced. Final consolidated review remains.
-- [x] Terminal rent policy — zero-balance terminal vaults may be closed and their rent returned only to the original poster; the task PDA is intentionally retained as the authoritative receipt.
-- [x] Generic selected-task payout derivation/verification — canonical vault and worker ATA are derived and verified on-chain before payout is enabled; no historical-fixture fallback.
-- [x] CI coverage includes mobile Node/typecheck, Android build, Gateway checks, Anchor tests, Anchor SBF + IDL build, and IDL-client consistency.
-- [~] Demo-only/legacy cleanup — primary mobile flow no longer depends on `demoTask`, memo receipts, or hardcoded payout context; repository-wide wording/value sweep remains.
-- [x] Current hardened Anchor SBF upgraded onto the existing devnet program identity and independently verified on-chain.
-- [ ] Run the full physical Android flow against a new non-canonical devnet task on the hardened deployment, including restart/recovery and verified payout.
+- [x] Gateway-backed worker-safe inbox with selected-task PDA reconciliation.
+- [x] Receipt/history view distinguishing Solana-confirmed, cached-observation, and receipt-only data.
+- [x] Versioned restart restoration with no automatic transaction replay.
+- [x] Evidence privacy policy and local-photo cleanup.
+- [x] Generic selected-task payout derivation and live token-account verification.
+- [x] Callback/SSRF hardening: DNS resolution, public-address checks, IP pinning, TLS hostname preservation, bounded/revalidated redirects.
+- [x] Exact token-credit checks for funding, payout, and refund.
+- [x] Canonical task-PDA constraints.
+- [x] Classic SPL/no-freeze policy for new escrows.
+- [x] Delivery deadline and claimed-task timeout recovery.
+- [x] Terminal empty-vault reclamation with rent returned only to the original poster.
+- [x] Current SBF/IDL consistency and hardened devnet deployment under the existing identity.
+- [x] Fresh non-canonical physical Android proof on the hardened deployment.
+- [x] Real wallet/network recovery exercise: payout reached Solana while the phone lost DNS access to the RPC; no transaction was replayed and final `PAID` reconciliation recovered after network restoration.
+- [x] Regression fix preventing stale Gateway `OPEN` state from being presented as authoritative during RPC failure.
+- [x] Historical runtime fixture/demo state retired; hosted physical-proof seed terminalized as `PAID`.
+- [~] Final consolidated quality/hygiene sweep and documentation closeout.
+- [ ] Deep-link/QR handoff — optional and deferred to M9 unless it materially improves submission UX.
 
 ### M8 evidence
 
-Inbox/restart:
-- root CI `36265032725` — 83/83 tests PASS, typecheck PASS
-- Android `36265450015` — release build PASS, artifact-upload step PASS
-- checkpoint: `docs/checkpoints/archive/2026-09-26-m8-inbox-restart.md`
+Core hardening:
 
-Receipt/history:
-- root CI `36269010656` — PASS
+- inbox/restart CI `36265032725` — PASS
+- evidence privacy CI `36270786483` — PASS
+- callback/SSRF Gateway verification `36272343485` — PASS
+- exact token credit `36273332817` — PASS
+- canonical task PDA `36274047485` — PASS
+- mint/token policy `36275212868` — PASS
+- claimed timeout recovery `36278762784` — PASS
+- terminal vault reclamation `36280520588` — PASS
+- generic payout root CI `36282472180` — PASS
+- Anchor SBF + IDL `36288500115` — PASS
+- IDL client consistency `36289499220` — PASS
 
-Evidence privacy:
-- root CI `36270786483` — 95/95 tests PASS, typecheck PASS
-- Android `36270786479` — PASS
-- policy: `docs/security/evidence-privacy.md`
+Hardened deployment:
 
-Callback/SSRF:
-- Gateway verification `36272154186` — PASS
-- fresh Gateway verification after docs `36272343485` — PASS
+- hardened upgrade `36294101421`, attempt 2 — PASS
+- independent signer-free preflight `36296153445`, attempt 2 — PASS
+- Program ID unchanged: `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
+- canonical ProgramData unchanged: `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
 
-Anchor hardening:
-- exact token-credit run `36273332817` — PASS
-- canonical task-PDA run `36274047485` — PASS
-- mint/token-program policy run `36275212868` — PASS
-- claimed-task timeout recovery run `36278762784` — PASS
-- terminal-vault rent reclamation run `36280520588` — PASS
+Fresh physical proof:
 
-Generic selected-task payout:
-- GREEN commit `f01ae707af39854b44b33e6c63848815aa219635`
-- root CI `36282472180` — PASS
-- Android standalone APK `36282472199` — PASS
+- hosted Gateway smoke `36303711875` — PASS
+- fresh task creation/binding `36303227689` — PASS
+- hosted-Gateway Android APK `36303092998` — PASS
+- acceptance `36311385406` — PASS
+- post-device-failure authoritative state check `36311843338` — PASS
+- exact payout verification `36311952353` — PASS
+- payout signature `UbpwAKQMUHmFyBGBF9Z7tq76LmS5oHtT8cyA27SG2ZRoWn7Hn4y57HDR9vPhGWNfw3o5deNEHwCeDYVxQYr2Qge`
+- worker token delta `+1,000,000` atomic = `+0.001 WSOL`
+- vault final amount `0`
+- final Android reconciliation: `PAID`
 
-Current SBF + IDL proof:
-- workflow trigger commit `cda4603b27f35d435ea5829bb0db0823aac80581`
-- `Anchor SBF + IDL` run `36288500115` — PASS
-- artifact `10921571305` contains `ground_relay.so` (254,144 bytes) and generated `ground_relay.json` (15,712 bytes)
-- generated IDL address remains `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- committed IDL synchronized from that generated artifact in commit `24702a7430ff78ca86a2a3d9bf90199ef11d81a1`
-- `IDL client consistency` run `36289499220` — PASS
+Network-recovery regression:
 
-Hardened devnet deployment:
-- original controlled hardened upgrade run `36294101421`, attempt 2 — PASS
-- original upgrade signature `5wDA7i8kM1jwwS6NAMhwRvFzfKmxAA7z2xpjKiLLZTiLi86pGTXgFAuiuZRZWcywxZuqbowBPChDkUGJxfVVFoKA`
-- latest controlled same-SBF deploy confirmation run `36296759500` — PASS at branch commit `b58718faa6cd46b552e5b83e6c9346edd669a1e9`
-- Program ID remained `6v2peeoZVj2AXfczVLqyMUTHYt3XQPqAxCktpTwjUZap`
-- SBF program data extended from 230,680 to 254,144 bytes during the first hardened upgrade
-- canonical ProgramData remained `GKggYJQfNJsZn2EqtuasShdKVPKxWUNbv3zg61UPjJgR`
-- fresh independent signer-free preflight run `36296153445`, attempt 2 — PASS
-- independently observed last deployed slot `504672943`
-- confirmed RPC context slot `504690023`
-- upgrade authority remained `6WG3UpKV9vBRh4XR961eZGpPZcHVGdxqpM3Eten5quuZ`
-- fresh verification checkpoint: `docs/checkpoints/archive/2026-09-27-m8-post-redeploy-verification.md`
+- RED `36312405844` — stale-authority display test failed before fix
+- GREEN `36312595528` — mobile tests + typecheck PASS after fix
 
-The current hardened SBF is therefore live on Solana devnet under the existing controlled identity. No mainnet deployment is authorized or implied.
+**Remaining M8 blocker:** one fresh consolidated repository quality/hygiene sweep must pass after the final cleanup, then documentation can record M8 as complete.
 
-**Remaining M8 blockers:** fresh non-canonical physical-device end-to-end proof, final wallet/network recovery exercise, consolidated security/demo-only sweep, and documentation closeout. Deep-link/QR is not currently considered an M8 blocker.
-
-**Exit condition:** the hardened flow can be repeated on a fresh non-canonical task without manual repair. **Not yet complete.**
+**Exit condition:** hardened flow repeats on a fresh non-canonical task, survives restart/network ambiguity without unsafe replay, and passes the consolidated closeout sweep. **Closeout verification in progress.**
 
 ## M9 — Release and hackathon submission
 
-- [ ] Produce final installable APK.
-- [ ] Verify fresh-device installation.
-- [ ] Run one final end-to-end devnet proof and record all relevant signatures/addresses.
-- [ ] Final README and architecture documentation.
+- [ ] Produce the final installable APK from the post-M8 branch state.
+- [ ] Verify fresh-device installation of the release candidate.
+- [ ] Record final public proof links and reviewer-facing verification instructions.
+- [ ] Final README/architecture polish for submission.
 - [ ] 90-second demo video.
 - [ ] Pitch deck.
 - [ ] Submission copy and screenshots.
+- [ ] Optional deep-link/QR handoff if it improves the demo.
 - [ ] Optional Solana dApp Store readiness work if useful.
 - [ ] Submit only after repository, APK, video, deck, and proof links are final.
 
