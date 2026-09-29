@@ -38,6 +38,43 @@ const handler = createMcpHandler(() => {
 const nodeHandler = toNodeHandler(handler);
 const port = Number(process.env.PORT || 3000);
 
+async function runMcpSelfTest() {
+  const response = await handler.fetch(new Request('http://localhost/mcp', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'accept': 'application/json, text/event-stream'
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'startup-tools-list',
+      method: 'tools/list',
+      params: {}
+    })
+  }));
+
+  const raw = await response.text();
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error(`tools/list returned non-JSON response: ${raw.slice(0, 200)}`);
+  }
+
+  const tools = payload?.result?.tools;
+  if (!Array.isArray(tools)) {
+    throw new Error(`tools/list missing tools array: ${raw.slice(0, 300)}`);
+  }
+
+  const names = tools.map((tool) => tool?.name);
+  const exact = names.length === 1 && names[0] === 'memory_status';
+  console.log(`mcp-selftest ${JSON.stringify({ httpStatus: response.status, tools: names, exact })}`);
+
+  if (!response.ok || !exact) {
+    throw new Error(`MCP self-test failed: status=${response.status} tools=${JSON.stringify(names)}`);
+  }
+}
+
 const httpServer = createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://localhost');
 
@@ -56,8 +93,13 @@ const httpServer = createServer((req, res) => {
   void nodeHandler(req, res);
 });
 
-httpServer.listen(port, '0.0.0.0', () => {
+httpServer.listen(port, '0.0.0.0', async () => {
   console.log(`persistent-memory-mcp-spike listening on ${port}`);
+  try {
+    await runMcpSelfTest();
+  } catch (error) {
+    console.error('mcp-selftest failed', error);
+  }
 });
 
 async function shutdown() {
