@@ -4,70 +4,106 @@ import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import * as z from 'zod/v4';
 import { createMemoryBackendFromEnv } from './memory-backend-factory.js';
+import { MEMORY_TOOL_NAMES, createMemoryOperations, sanitizeMemoryError } from './memory-service.js';
 
 const defaultDatabasePath = fileURLToPath(new URL('./data/memory.sqlite', import.meta.url));
 const memoryBackend = await createMemoryBackendFromEnv(process.env, { defaultDatabasePath });
+const operations = createMemoryOperations(memoryBackend);
 const configuredBackend = process.env.MEMORY_BACKEND === 'd1' ? 'cloudflare-d1' : 'sqlite-file';
 
+function asToolResult(value) {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(value) }],
+    structuredContent: value
+  };
+}
+
+async function runOperation(name, args) {
+  try {
+    return asToolResult(await operations[name](args));
+  } catch (error) {
+    throw sanitizeMemoryError(error);
+  }
+}
+
 const handler = createMcpHandler(() => {
-  const server = new McpServer({ name: 'persistent-memory-mcp-spike', version: '0.0.4' });
+  const server = new McpServer({ name: 'persistent-memory-mcp-spike', version: '0.0.5' });
 
   server.registerTool('memory_status', {
     title: 'Persistent Memory Status',
-    description: 'Report the status of the writable test memory backend.',
+    description: 'Report writable memory backend status and append-only event count.',
     inputSchema: z.object({})
-  }, async () => {
-    const backendStatus = await memoryBackend.status();
-    const status = {
-      ok: true,
-      service: 'persistent-memory-mcp-spike',
-      mode: 'read-write',
-      memoryBackend: backendStatus.backend,
-      records: backendStatus.records,
-      writable: backendStatus.writable,
-      persistence: backendStatus.persistence,
-      timestamp: new Date().toISOString()
-    };
-    return { content: [{ type: 'text', text: JSON.stringify(status) }], structuredContent: status };
-  });
+  }, async () => runOperation('memory_status', {}));
 
   server.registerTool('memory_create', {
     title: 'Create Test Memory',
-    description: 'Create one synthetic test memory in the writable spike backend.',
+    description: 'Create one immutable synthetic test memory.',
     inputSchema: z.object({
       id: z.string().min(1).max(100).optional(),
       scope: z.string().min(1).max(128).default('global'),
       kind: z.string().min(1).max(64).default('context'),
       content: z.string().min(1).max(4096)
     })
-  }, async ({ id, scope, kind, content }) => {
-    const item = await memoryBackend.create({ id, scope, kind, content, source: 'mcp_write_spike' });
-    const result = { created: true, item };
-    return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
-  });
+  }, async (args) => runOperation('memory_create', args));
 
   server.registerTool('memory_get', {
     title: 'Get Persistent Memory',
-    description: 'Read one test memory by id.',
+    description: 'Read the exact immutable memory item by id plus derived semantic state.',
     inputSchema: z.object({ id: z.string().min(1).max(100) })
-  }, async ({ id }) => {
-    const item = await memoryBackend.get(id);
-    const result = { found: item !== null, item };
-    return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
-  });
+  }, async (args) => runOperation('memory_get', args));
 
   server.registerTool('memory_search', {
     title: 'Search Persistent Memory',
-    description: 'Literal case-insensitive search over test memories.',
+    description: 'Literal case-insensitive search. Historical versions are hidden by default.',
     inputSchema: z.object({
       query: z.string().min(1).max(256),
-      limit: z.number().int().min(1).max(20).default(5)
+      limit: z.number().int().min(1).max(20).default(5),
+      includeHistory: z.boolean().default(false)
     })
-  }, async ({ query, limit }) => {
-    const items = await memoryBackend.search(query, limit);
-    const result = { query, count: items.length, items };
-    return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
-  });
+  }, async (args) => runOperation('memory_search', args));
+
+  server.registerTool('memory_revise', {
+    title: 'Revise Persistent Memory',
+    description: 'Create a new immutable memory version and append a revision relation.',
+    inputSchema: z.object({
+      id: z.string().min(1).max(100),
+      content: z.string().min(1).max(4096),
+      reason: z.string().min(1).max(1024).optional(),
+      newId: z.string().min(1).max(100).optional()
+    })
+  }, async (args) => runOperation('memory_revise', args));
+
+  server.registerTool('memory_confirm', {
+    title: 'Confirm Persistent Memory',
+    description: 'Append a non-destructive confirmation event to a memory.',
+    inputSchema: z.object({
+      id: z.string().min(1).max(100),
+      note: z.string().min(1).max(1024).optional()
+    })
+  }, async (args) => runOperation('memory_confirm', args));
+
+  server.registerTool('memory_supersede', {
+    title: 'Supersede Persistent Memory',
+    description: 'Link two existing current memories so the new one supersedes the old one.',
+    inputSchema: z.object({
+      oldId: z.string().min(1).max(100),
+      newId: z.string().min(1).max(100),
+      reason: z.string().min(1).max(1024).optional()
+    })
+  }, async (args) => runOperation('memory_supersede', args));
+
+  server.registerTool('decision_record', {
+    title: 'Record Durable Decision',
+    description: 'Persist a decision together with rationale, alternatives, and optional context.',
+    inputSchema: z.object({
+      decision: z.string().min(1).max(4096),
+      rationale: z.string().min(1).max(4096),
+      alternatives: z.array(z.string().min(1).max(1024)).max(20).default([]),
+      context: z.string().min(1).max(2048).optional(),
+      scope: z.string().min(1).max(128).default('global'),
+      id: z.string().min(1).max(100).optional()
+    })
+  }, async (args) => runOperation('decision_record', args));
 
   return server;
 }, { responseMode: 'json' });
@@ -99,7 +135,7 @@ async function runMcpSelfTest() {
   if (!Array.isArray(tools)) throw new Error(`tools/list missing tools array: ${listed.raw.slice(0, 300)}`);
 
   const names = tools.map((tool) => tool?.name).sort();
-  const expected = ['memory_create', 'memory_get', 'memory_search', 'memory_status'];
+  const expected = [...MEMORY_TOOL_NAMES].sort();
   const exact = JSON.stringify(names) === JSON.stringify(expected);
   console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, expected, exact })}`);
   if (!listed.response.ok || !exact) throw new Error(`MCP tools/list failed: status=${listed.response.status} tools=${JSON.stringify(names)}`);
@@ -113,7 +149,7 @@ async function runMcpSelfTest() {
   const statusOk = Boolean(
     statusCall.response.ok && status?.ok === true &&
     status?.service === 'persistent-memory-mcp-spike' && status?.mode === 'read-write' &&
-    status?.writable === true && backendOk
+    status?.writable === true && Number.isInteger(status?.events) && backendOk
   );
 
   const probeId = 'teste-123';
@@ -150,7 +186,7 @@ async function runMcpSelfTest() {
   );
 
   const searchCall = await invokeMcp('startup-search-call', 'tools/call', {
-    name: 'memory_search', arguments: { query: probeId, limit: 5 }
+    name: 'memory_search', arguments: { query: probeId, limit: 5, includeHistory: false }
   });
   const searched = searchCall.payload?.result?.structuredContent;
   const searchOk = Boolean(
@@ -167,6 +203,7 @@ async function runMcpSelfTest() {
     probePreexisting,
     backend: status?.memoryBackend,
     recordsBeforeWrite: status?.records,
+    eventsBeforeWrite: status?.events,
     writable: status?.writable,
     persistence: status?.persistence
   })}`);
@@ -188,7 +225,7 @@ const httpServer = createServer((req, res) => {
     res.end(JSON.stringify({
       ok: true,
       mcpEndpoint: '/mcp',
-      tools: ['memory_status', 'memory_create', 'memory_get', 'memory_search'],
+      tools: MEMORY_TOOL_NAMES,
       backend: configuredBackend,
       mode: 'read-write'
     }));
