@@ -1,0 +1,22 @@
+{
+  "name": "persistent-memory-spike-marketplace",
+  "interface": {
+    "displayName": "Persistent Memory Spike"
+  },
+  "plugins": [
+    {
+      "name": "persistent-memory-spike",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/uknwplayer/ground-relay.git",
+        "path": "./persistent-memory-plugin",
+        "ref": "spike-mcp-memory-status"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
