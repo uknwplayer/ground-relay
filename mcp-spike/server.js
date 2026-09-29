@@ -5,6 +5,7 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import * as z from 'zod/v4';
 import { createMemoryBackendFromEnv } from './memory-backend-factory.js';
 import { MEMORY_TOOL_NAMES, createMemoryOperations, sanitizeMemoryError } from './memory-service.js';
+import { runSemanticRestartProbe } from './semantic-restart-probe.js';
 
 const defaultDatabasePath = fileURLToPath(new URL('./data/memory.sqlite', import.meta.url));
 const memoryBackend = await createMemoryBackendFromEnv(process.env, { defaultDatabasePath });
@@ -210,6 +211,37 @@ async function runMcpSelfTest() {
 
   if (!statusOk || !createOk || !getOk || !searchOk) {
     throw new Error('MCP writable memory self-test failed');
+  }
+
+  if (status?.persistence === 'remote-durable') {
+    let semanticCallSequence = 0;
+    const semantic = await runSemanticRestartProbe(async (name, args) => {
+      semanticCallSequence += 1;
+      const call = await invokeMcp(`semantic-restart-${semanticCallSequence}`, 'tools/call', {
+        name,
+        arguments: args
+      });
+      const value = call.payload?.result?.structuredContent;
+      if (!call.response.ok || !value) throw new Error('semantic_restart_probe_tool_failed');
+      return value;
+    });
+
+    console.log(`mcp-semantic-restart-probe ${JSON.stringify({
+      ok: semantic.ok,
+      preexisting: semantic.preexisting,
+      seeded: semantic.seeded,
+      revision: semantic.revision,
+      confirmation: semantic.confirmation,
+      supersession: semantic.supersession,
+      decision: semantic.decision,
+      currentSearch: semantic.currentSearch,
+      historySearch: semantic.historySearch,
+      ids: semantic.ids,
+      backend: status?.memoryBackend,
+      persistence: status?.persistence
+    })}`);
+
+    if (!semantic.ok) throw new Error('MCP semantic restart probe failed');
   }
 }
 
