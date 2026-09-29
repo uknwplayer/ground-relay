@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "persistent-memory-spike",
+  "version": "0.0.1",
+  "description": "Feasibility plugin for connecting ChatGPT or Codex to a read-only persistent-memory MCP status tool.",
+  "repository": "https://github.com/uknwplayer/ground-relay",
+  "keywords": ["memory", "mcp", "persistent-memory", "spike"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Persistent Memory Spike",
+        "shortDescription": "Test a read-only persistent-memory MCP connection.",
+        "longDescription": "Temporary feasibility plugin that connects to a remote MCP server exposing only memory_status. It does not read or write real persistent memory yet.",
+        "developerName": "uknwplayer",
+        "category": "developer-tools",
+        "capabilities": ["mcp"],
+        "defaultPrompt": "Check the persistent memory MCP status."
+      }
+    }
+  }
+}
