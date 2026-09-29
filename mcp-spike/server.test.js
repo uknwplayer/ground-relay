@@ -31,18 +31,15 @@ test('operations preserve exact-id reads and current versus history search', asy
     await ops.memory_create({ id: 'op-old', content: 'alpha historical' });
     const revised = await ops.memory_revise({ id: 'op-old', content: 'alpha current', newId: 'op-new' });
     assert.equal(revised.current.id, 'op-new');
-
     const oldRead = await ops.memory_get({ id: 'op-old' });
     assert.equal(oldRead.found, true);
     assert.equal(oldRead.item.id, 'op-old');
     assert.equal(oldRead.item.content, 'alpha historical');
     assert.equal(oldRead.state.current, false);
     assert.equal(oldRead.state.supersededBy, 'op-new');
-
     const currentSearch = await ops.memory_search({ query: 'alpha', limit: 5, includeHistory: false });
     assert.deepEqual(currentSearch.items.map((item) => item.id), ['op-new']);
     assert.equal(currentSearch.items[0].state.current, true);
-
     const historySearch = await ops.memory_search({ query: 'historical', limit: 5, includeHistory: true });
     assert.deepEqual(historySearch.items.map((item) => item.id), ['op-old']);
     assert.equal(historySearch.items[0].state.current, false);
@@ -59,10 +56,8 @@ test('operations expose confirmations supersession decisions and additive status
     await ops.memory_create({ id: 'sup-new', content: 'new' });
     const superseded = await ops.memory_supersede({ oldId: 'sup-old', newId: 'sup-new' });
     assert.equal(superseded.relation.type, 'supersede');
-
     const confirmed = await ops.memory_confirm({ id: 'sup-new', note: 'checked' });
     assert.equal(confirmed.confirmationCount, 1);
-
     const decision = await ops.decision_record({
       id: 'decision-op',
       decision: 'Keep append-only history',
@@ -72,7 +67,6 @@ test('operations expose confirmations supersession decisions and additive status
     });
     assert.equal(decision.item.kind, 'decision');
     assert.equal(decision.decision.rationale, 'Auditability');
-
     const status = await ops.memory_status({});
     assert.equal(status.ok, true);
     assert.equal(status.events, 3);
@@ -85,7 +79,6 @@ test('operations expose confirmations supersession decisions and additive status
 test('semantic and backend failures are sanitized for MCP callers', () => {
   const semantic = Object.assign(new Error('raw details must not surface'), { code: 'memory_not_found' });
   assert.equal(sanitizeMemoryError(semantic).message, 'memory_not_found');
-
   const backend = new Error('SQL SELECT secret-user-content');
   assert.equal(sanitizeMemoryError(backend).message, 'memory_backend_error');
 });
@@ -99,4 +92,17 @@ test('server source registers exactly eight tools and declares history search in
   assert.match(source, /server\.registerTool\('memory_confirm'/);
   assert.match(source, /server\.registerTool\('memory_supersede'/);
   assert.match(source, /server\.registerTool\('decision_record'/);
+});
+
+test('server runs semantic restart probe only for remote durable backend and logs safe summary', () => {
+  const source = readFileSync(new URL('./server.js', import.meta.url), 'utf8');
+  assert.match(source, /runSemanticRestartProbe/);
+  assert.match(source, /status\?\.persistence === 'remote-durable'/);
+  assert.match(source, /mcp-semantic-restart-probe/);
+  assert.match(source, /preexisting:/);
+  assert.match(source, /revision:/);
+  assert.match(source, /confirmation:/);
+  assert.match(source, /supersession:/);
+  assert.match(source, /decision:/);
+  assert.doesNotMatch(source, /Append-only events preserve audit history across process replacement/);
 });
