@@ -10,7 +10,7 @@ const memoryBackend = await createMemoryBackendFromEnv(process.env, { defaultDat
 const configuredBackend = process.env.MEMORY_BACKEND === 'd1' ? 'cloudflare-d1' : 'sqlite-file';
 
 const handler = createMcpHandler(() => {
-  const server = new McpServer({ name: 'persistent-memory-mcp-spike', version: '0.0.3' });
+  const server = new McpServer({ name: 'persistent-memory-mcp-spike', version: '0.0.4' });
 
   server.registerTool('memory_status', {
     title: 'Persistent Memory Status',
@@ -116,29 +116,64 @@ async function runMcpSelfTest() {
     status?.writable === true && backendOk
   );
 
-  const writeId = `startup-selftest-${Date.now()}-${process.pid}`;
-  const writeContent = `MCP write self-test ${writeId}`;
-  const createCall = await invokeMcp('startup-create-call', 'tools/call', {
-    name: 'memory_create',
-    arguments: { id: writeId, scope: 'spike:selftest', kind: 'test', content: writeContent }
+  const probeId = 'teste-123';
+  const probeContent = 'Persistent memory restart probe teste-123';
+  const probeGetBeforeCall = await invokeMcp('startup-probe-get-before', 'tools/call', {
+    name: 'memory_get', arguments: { id: probeId }
   });
-  const created = createCall.payload?.result?.structuredContent;
-  const createOk = Boolean(createCall.response.ok && created?.created === true && created?.item?.id === writeId && created?.item?.content === writeContent);
+  const probeBefore = probeGetBeforeCall.payload?.result?.structuredContent;
+  const probePreexisting = Boolean(
+    probeGetBeforeCall.response.ok && probeBefore?.found === true &&
+    probeBefore?.item?.id === probeId && probeBefore?.item?.content === probeContent
+  );
 
-  const getCall = await invokeMcp('startup-get-call', 'tools/call', { name: 'memory_get', arguments: { id: writeId } });
+  let createOk = probePreexisting;
+  if (!probePreexisting) {
+    const createCall = await invokeMcp('startup-create-call', 'tools/call', {
+      name: 'memory_create',
+      arguments: { id: probeId, scope: 'spike:restart-proof', kind: 'test', content: probeContent }
+    });
+    const created = createCall.payload?.result?.structuredContent;
+    createOk = Boolean(
+      createCall.response.ok && created?.created === true &&
+      created?.item?.id === probeId && created?.item?.content === probeContent
+    );
+  }
+
+  const getCall = await invokeMcp('startup-get-call', 'tools/call', {
+    name: 'memory_get', arguments: { id: probeId }
+  });
   const got = getCall.payload?.result?.structuredContent;
-  const getOk = Boolean(getCall.response.ok && got?.found === true && got?.item?.id === writeId && got?.item?.content === writeContent);
+  const getOk = Boolean(
+    getCall.response.ok && got?.found === true &&
+    got?.item?.id === probeId && got?.item?.content === probeContent
+  );
 
-  const searchCall = await invokeMcp('startup-search-call', 'tools/call', { name: 'memory_search', arguments: { query: writeId, limit: 5 } });
+  const searchCall = await invokeMcp('startup-search-call', 'tools/call', {
+    name: 'memory_search', arguments: { query: probeId, limit: 5 }
+  });
   const searched = searchCall.payload?.result?.structuredContent;
-  const searchOk = Boolean(searchCall.response.ok && searched?.count >= 1 && searched?.items?.some((item) => item?.id === writeId));
+  const searchOk = Boolean(
+    searchCall.response.ok && searched?.count >= 1 &&
+    searched?.items?.some((item) => item?.id === probeId && item?.content === probeContent)
+  );
 
   console.log(`mcp-selftest-call ${JSON.stringify({
-    status: statusOk, create: createOk, get: getOk, search: searchOk,
-    backend: status?.memoryBackend, recordsBeforeWrite: status?.records,
-    writable: status?.writable, persistence: status?.persistence
+    status: statusOk,
+    create: createOk,
+    get: getOk,
+    search: searchOk,
+    probeId,
+    probePreexisting,
+    backend: status?.memoryBackend,
+    recordsBeforeWrite: status?.records,
+    writable: status?.writable,
+    persistence: status?.persistence
   })}`);
-  if (!statusOk || !createOk || !getOk || !searchOk) throw new Error('MCP writable memory self-test failed');
+
+  if (!statusOk || !createOk || !getOk || !searchOk) {
+    throw new Error('MCP writable memory self-test failed');
+  }
 }
 
 const httpServer = createServer((req, res) => {
