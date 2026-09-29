@@ -106,3 +106,10 @@ test('server runs semantic restart probe only for remote durable backend and log
   assert.match(source, /decision:/);
   assert.doesNotMatch(source, /Append-only events preserve audit history across process replacement/);
 });
+
+test('server startup self-test includes one non-mutating invalid-schema rejection', () => {
+  const source = readFileSync(new URL('./server.js', import.meta.url), 'utf8');
+  assert.match(source, /startup-invalid-schema-call/);
+  assert.match(source, /invalidRejected/);
+  assert.match(source, /mcp-selftest-schema/);
+});
