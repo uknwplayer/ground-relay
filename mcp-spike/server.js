@@ -2,6 +2,9 @@ import { createServer } from 'node:http';
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import * as z from 'zod/v4';
+import { createDemoMemoryBackend } from './memory-backend.js';
+
+const memoryBackend = createDemoMemoryBackend();
 
 const handler = createMcpHandler(() => {
   const server = new McpServer({
@@ -13,21 +16,73 @@ const handler = createMcpHandler(() => {
     'memory_status',
     {
       title: 'Persistent Memory Status',
-      description: 'Read-only spike tool that reports whether the remote MCP server is reachable. No persistent-memory backend is connected yet.',
+      description: 'Report the status of the read-only SQLite demo memory backend.',
       inputSchema: z.object({})
     },
     async () => {
+      const backendStatus = memoryBackend.status();
       const status = {
         ok: true,
         service: 'persistent-memory-mcp-spike',
         mode: 'read-only',
-        memoryBackend: 'not-connected',
+        memoryBackend: backendStatus.backend,
+        records: backendStatus.records,
+        writable: backendStatus.writable,
+        persistence: backendStatus.persistence,
         timestamp: new Date().toISOString()
       };
 
       return {
         content: [{ type: 'text', text: JSON.stringify(status) }],
         structuredContent: status
+      };
+    }
+  );
+
+  server.registerTool(
+    'memory_get',
+    {
+      title: 'Get Persistent Memory',
+      description: 'Read one synthetic demo memory by id. This tool never writes memory.',
+      inputSchema: z.object({
+        id: z.string().min(1).max(100)
+      })
+    },
+    async ({ id }) => {
+      const item = memoryBackend.get(id);
+      const result = {
+        found: item !== null,
+        item
+      };
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        structuredContent: result
+      };
+    }
+  );
+
+  server.registerTool(
+    'memory_search',
+    {
+      title: 'Search Persistent Memory',
+      description: 'Literal case-insensitive search over synthetic demo memories. This tool never writes memory.',
+      inputSchema: z.object({
+        query: z.string().min(1).max(256),
+        limit: z.number().int().min(1).max(20).default(5)
+      })
+    },
+    async ({ query, limit }) => {
+      const items = memoryBackend.search(query, limit);
+      const result = {
+        query,
+        count: items.length,
+        items
+      };
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        structuredContent: result
       };
     }
   );
@@ -97,7 +152,8 @@ async function runMcpSelfTest() {
     status?.service === 'persistent-memory-mcp-spike' &&
     status?.mode === 'read-only' &&
     status?.memoryBackend === 'sqlite-demo' &&
-    status?.records === 2
+    status?.records === 2 &&
+    status?.writable === false
   );
 
   const getCall = await invokeMcp('startup-get-call', 'tools/call', {
@@ -128,7 +184,8 @@ async function runMcpSelfTest() {
     get: getOk,
     search: searchOk,
     backend: status?.memoryBackend,
-    records: status?.records
+    records: status?.records,
+    writable: status?.writable
   })}`);
 
   if (!statusOk || !getOk || !searchOk) {
@@ -147,7 +204,13 @@ const httpServer = createServer((req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, mcpEndpoint: '/mcp', tools: ['memory_status'] }));
+    res.end(JSON.stringify({
+      ok: true,
+      mcpEndpoint: '/mcp',
+      tools: ['memory_status', 'memory_get', 'memory_search'],
+      backend: 'sqlite-demo',
+      mode: 'read-only'
+    }));
     return;
   }
 
@@ -165,6 +228,7 @@ httpServer.listen(port, '0.0.0.0', async () => {
 
 async function shutdown() {
   await handler.close();
+  memoryBackend.close();
   httpServer.close(() => process.exit(0));
 }
 
