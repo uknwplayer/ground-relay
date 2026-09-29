@@ -1,20 +1,20 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "persistent-memory-spike",
-  "version": "0.0.1",
-  "description": "Feasibility plugin for connecting ChatGPT or Codex to a read-only persistent-memory MCP status tool.",
+  "version": "0.0.2",
+  "description": "Feasibility plugin for connecting ChatGPT or Codex to a read-only persistent-memory MCP backed by synthetic SQLite data.",
   "repository": "https://github.com/uknwplayer/ground-relay",
-  "keywords": ["memory", "mcp", "persistent-memory", "spike"],
+  "keywords": ["memory", "mcp", "persistent-memory", "sqlite", "spike"],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "Persistent Memory Spike",
-        "shortDescription": "Test a read-only persistent-memory MCP connection.",
-        "longDescription": "Temporary feasibility plugin that connects to a remote MCP server exposing only memory_status. It does not read or write real persistent memory yet.",
+        "shortDescription": "Test read-only persistent-memory MCP access.",
+        "longDescription": "Temporary feasibility plugin that connects to a remote MCP server exposing memory_status, memory_get, and memory_search over a synthetic SQLite demo backend. It exposes no write tool and does not contain personal memory.",
         "developerName": "uknwplayer",
         "category": "developer-tools",
         "capabilities": ["mcp"],
-        "defaultPrompt": "Check the persistent memory MCP status."
+        "defaultPrompt": "Check the persistent memory MCP status and search the synthetic demo memory if useful."
       }
     }
   }
