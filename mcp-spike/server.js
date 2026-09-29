@@ -96,7 +96,7 @@ async function runMcpSelfTest() {
     status?.ok === true &&
     status?.service === 'persistent-memory-mcp-spike' &&
     status?.mode === 'read-only' &&
-    status?.memoryBackend === 'synthetic-json' &&
+    status?.memoryBackend === 'sqlite-demo' &&
     status?.records === 2
   );
 
