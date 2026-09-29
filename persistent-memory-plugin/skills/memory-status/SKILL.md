@@ -1,8 +1,12 @@
 ---
 name: memory-status
-description: Check whether the Persistent Memory MCP spike is reachable and report its read-only backend status.
+description: Inspect the Persistent Memory MCP spike and read or search its synthetic read-only SQLite demo memories.
 ---
 
-Use the `memory_status` MCP tool.
+Use the MCP tools according to the request:
 
-Report the returned service name, mode, whether a memory backend is connected, and timestamp. Do not infer that real persistent memory is available unless the tool explicitly reports a connected backend.
+- `memory_status` for service/backend status.
+- `memory_get` to read one synthetic demo memory by exact id.
+- `memory_search` to search the synthetic demo memories.
+
+Treat this as a feasibility spike only. The backend is read-only SQLite demo data with process-lifetime persistence; it is not the user's real persistent memory. Never claim that writes or durable personal memory are available.
