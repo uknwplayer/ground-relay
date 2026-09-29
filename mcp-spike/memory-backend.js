@@ -1,3 +1,6 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
 const DEMO_ROWS = [
@@ -19,11 +22,17 @@ const DEMO_ROWS = [
   }
 ];
 
-export function createDemoMemoryBackend() {
-  const db = new DatabaseSync(':memory:');
+function ensureParentDirectory(databasePath) {
+  if (databasePath === ':memory:') return;
+  mkdirSync(dirname(databasePath), { recursive: true });
+}
+
+export function createDemoMemoryBackend({ databasePath = ':memory:' } = {}) {
+  ensureParentDirectory(databasePath);
+  const db = new DatabaseSync(databasePath);
 
   db.exec(`
-    CREATE TABLE memory_items (
+    CREATE TABLE IF NOT EXISTS memory_items (
       id TEXT PRIMARY KEY,
       scope TEXT NOT NULL,
       kind TEXT NOT NULL,
@@ -33,17 +42,19 @@ export function createDemoMemoryBackend() {
     );
   `);
 
-  const insert = db.prepare(`
-    INSERT INTO memory_items (id, scope, kind, content, source, created_at)
+  const seedStatement = db.prepare(`
+    INSERT OR IGNORE INTO memory_items (id, scope, kind, content, source, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   for (const row of DEMO_ROWS) {
-    insert.run(row.id, row.scope, row.kind, row.content, row.source, row.createdAt);
+    seedStatement.run(row.id, row.scope, row.kind, row.content, row.source, row.createdAt);
   }
 
-  db.exec('PRAGMA query_only = ON');
-
+  const createStatement = db.prepare(`
+    INSERT INTO memory_items (id, scope, kind, content, source, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
   const countStatement = db.prepare('SELECT COUNT(*) AS count FROM memory_items');
   const getStatement = db.prepare(`
     SELECT id, scope, kind, content, source, created_at AS createdAt
@@ -57,7 +68,7 @@ export function createDemoMemoryBackend() {
        OR instr(lower(id), lower(?)) > 0
        OR instr(lower(scope), lower(?)) > 0
        OR instr(lower(kind), lower(?)) > 0
-    ORDER BY id ASC
+    ORDER BY created_at DESC, id ASC
     LIMIT ?
   `);
 
@@ -65,11 +76,16 @@ export function createDemoMemoryBackend() {
     status() {
       const row = countStatement.get();
       return {
-        backend: 'sqlite-demo',
+        backend: databasePath === ':memory:' ? 'sqlite-memory' : 'sqlite-file',
         records: Number(row?.count ?? 0),
-        writable: false,
-        persistence: 'process-lifetime'
+        writable: true,
+        persistence: databasePath === ':memory:' ? 'process-lifetime' : 'file-backed'
       };
+    },
+
+    create({ id = randomUUID(), scope = 'global', kind = 'context', content, source = 'mcp_write_spike', createdAt = new Date().toISOString() }) {
+      createStatement.run(id, scope, kind, content, source, createdAt);
+      return getStatement.get(id);
     },
 
     get(id) {

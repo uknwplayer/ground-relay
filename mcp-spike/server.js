@@ -1,22 +1,25 @@
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import * as z from 'zod/v4';
 import { createDemoMemoryBackend } from './memory-backend.js';
 
-const memoryBackend = createDemoMemoryBackend();
+const defaultDatabasePath = fileURLToPath(new URL('./data/memory.sqlite', import.meta.url));
+const databasePath = process.env.MEMORY_DB_PATH || defaultDatabasePath;
+const memoryBackend = createDemoMemoryBackend({ databasePath });
 
 const handler = createMcpHandler(() => {
   const server = new McpServer({
     name: 'persistent-memory-mcp-spike',
-    version: '0.0.1'
+    version: '0.0.2'
   });
 
   server.registerTool(
     'memory_status',
     {
       title: 'Persistent Memory Status',
-      description: 'Report the status of the read-only SQLite demo memory backend.',
+      description: 'Report the status of the writable SQLite test memory backend.',
       inputSchema: z.object({})
     },
     async () => {
@@ -24,7 +27,7 @@ const handler = createMcpHandler(() => {
       const status = {
         ok: true,
         service: 'persistent-memory-mcp-spike',
-        mode: 'read-only',
+        mode: 'read-write',
         memoryBackend: backendStatus.backend,
         records: backendStatus.records,
         writable: backendStatus.writable,
@@ -40,10 +43,39 @@ const handler = createMcpHandler(() => {
   );
 
   server.registerTool(
+    'memory_create',
+    {
+      title: 'Create Test Memory',
+      description: 'Create one synthetic test memory in the writable SQLite spike backend.',
+      inputSchema: z.object({
+        id: z.string().min(1).max(100).optional(),
+        scope: z.string().min(1).max(128).default('global'),
+        kind: z.string().min(1).max(64).default('context'),
+        content: z.string().min(1).max(4096)
+      })
+    },
+    async ({ id, scope, kind, content }) => {
+      const item = memoryBackend.create({
+        id,
+        scope,
+        kind,
+        content,
+        source: 'mcp_write_spike'
+      });
+      const result = { created: true, item };
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        structuredContent: result
+      };
+    }
+  );
+
+  server.registerTool(
     'memory_get',
     {
       title: 'Get Persistent Memory',
-      description: 'Read one synthetic demo memory by id. This tool never writes memory.',
+      description: 'Read one test memory by id.',
       inputSchema: z.object({
         id: z.string().min(1).max(100)
       })
@@ -66,7 +98,7 @@ const handler = createMcpHandler(() => {
     'memory_search',
     {
       title: 'Search Persistent Memory',
-      description: 'Literal case-insensitive search over synthetic demo memories. This tool never writes memory.',
+      description: 'Literal case-insensitive search over test memories.',
       inputSchema: z.object({
         query: z.string().min(1).max(256),
         limit: z.number().int().min(1).max(20).default(5)
@@ -133,7 +165,7 @@ async function runMcpSelfTest() {
   }
 
   const names = tools.map((tool) => tool?.name).sort();
-  const expected = ['memory_get', 'memory_search', 'memory_status'];
+  const expected = ['memory_create', 'memory_get', 'memory_search', 'memory_status'];
   const exact = JSON.stringify(names) === JSON.stringify(expected);
   console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, expected, exact })}`);
 
@@ -150,46 +182,68 @@ async function runMcpSelfTest() {
     statusCall.response.ok &&
     status?.ok === true &&
     status?.service === 'persistent-memory-mcp-spike' &&
-    status?.mode === 'read-only' &&
-    status?.memoryBackend === 'sqlite-demo' &&
-    status?.records === 2 &&
-    status?.writable === false
+    status?.mode === 'read-write' &&
+    status?.memoryBackend === 'sqlite-file' &&
+    status?.records >= 2 &&
+    status?.writable === true &&
+    status?.persistence === 'file-backed'
+  );
+
+  const writeId = `startup-selftest-${Date.now()}-${process.pid}`;
+  const writeContent = `MCP write self-test ${writeId}`;
+  const createCall = await invokeMcp('startup-create-call', 'tools/call', {
+    name: 'memory_create',
+    arguments: {
+      id: writeId,
+      scope: 'spike:selftest',
+      kind: 'test',
+      content: writeContent
+    }
+  });
+  const created = createCall.payload?.result?.structuredContent;
+  const createOk = Boolean(
+    createCall.response.ok &&
+    created?.created === true &&
+    created?.item?.id === writeId &&
+    created?.item?.content === writeContent
   );
 
   const getCall = await invokeMcp('startup-get-call', 'tools/call', {
     name: 'memory_get',
-    arguments: { id: 'demo-001' }
+    arguments: { id: writeId }
   });
   const got = getCall.payload?.result?.structuredContent;
   const getOk = Boolean(
     getCall.response.ok &&
     got?.found === true &&
-    got?.item?.id === 'demo-001' &&
-    got?.item?.content === 'Blue widgets are stored in bin A.'
+    got?.item?.id === writeId &&
+    got?.item?.content === writeContent
   );
 
   const searchCall = await invokeMcp('startup-search-call', 'tools/call', {
     name: 'memory_search',
-    arguments: { query: 'metric', limit: 5 }
+    arguments: { query: writeId, limit: 5 }
   });
   const searched = searchCall.payload?.result?.structuredContent;
   const searchOk = Boolean(
     searchCall.response.ok &&
-    searched?.count === 1 &&
-    searched?.items?.[0]?.id === 'demo-002'
+    searched?.count >= 1 &&
+    searched?.items?.some((item) => item?.id === writeId)
   );
 
   console.log(`mcp-selftest-call ${JSON.stringify({
     status: statusOk,
+    create: createOk,
     get: getOk,
     search: searchOk,
     backend: status?.memoryBackend,
-    records: status?.records,
-    writable: status?.writable
+    recordsBeforeWrite: status?.records,
+    writable: status?.writable,
+    persistence: status?.persistence
   })}`);
 
-  if (!statusOk || !getOk || !searchOk) {
-    throw new Error('MCP read-only memory self-test failed');
+  if (!statusOk || !createOk || !getOk || !searchOk) {
+    throw new Error('MCP writable memory self-test failed');
   }
 }
 
@@ -207,9 +261,9 @@ const httpServer = createServer((req, res) => {
     res.end(JSON.stringify({
       ok: true,
       mcpEndpoint: '/mcp',
-      tools: ['memory_status', 'memory_get', 'memory_search'],
-      backend: 'sqlite-demo',
-      mode: 'read-only'
+      tools: ['memory_status', 'memory_create', 'memory_get', 'memory_search'],
+      backend: 'sqlite-file',
+      mode: 'read-write'
     }));
     return;
   }
