@@ -77,37 +77,62 @@ async function runMcpSelfTest() {
     throw new Error(`tools/list missing tools array: ${listed.raw.slice(0, 300)}`);
   }
 
-  const names = tools.map((tool) => tool?.name);
-  const exact = names.length === 1 && names[0] === 'memory_status';
-  console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, exact })}`);
+  const names = tools.map((tool) => tool?.name).sort();
+  const expected = ['memory_get', 'memory_search', 'memory_status'];
+  const exact = JSON.stringify(names) === JSON.stringify(expected);
+  console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, expected, exact })}`);
 
   if (!listed.response.ok || !exact) {
     throw new Error(`MCP tools/list failed: status=${listed.response.status} tools=${JSON.stringify(names)}`);
   }
 
-  const called = await invokeMcp('startup-tool-call', 'tools/call', {
+  const statusCall = await invokeMcp('startup-status-call', 'tools/call', {
     name: 'memory_status',
     arguments: {}
   });
-  const status = called.payload?.result?.structuredContent;
-  const callOk = Boolean(
-    called.response.ok &&
+  const status = statusCall.payload?.result?.structuredContent;
+  const statusOk = Boolean(
+    statusCall.response.ok &&
     status?.ok === true &&
     status?.service === 'persistent-memory-mcp-spike' &&
     status?.mode === 'read-only' &&
-    status?.memoryBackend === 'not-connected'
+    status?.memoryBackend === 'synthetic-json' &&
+    status?.records === 2
+  );
+
+  const getCall = await invokeMcp('startup-get-call', 'tools/call', {
+    name: 'memory_get',
+    arguments: { id: 'demo-001' }
+  });
+  const got = getCall.payload?.result?.structuredContent;
+  const getOk = Boolean(
+    getCall.response.ok &&
+    got?.found === true &&
+    got?.item?.id === 'demo-001' &&
+    got?.item?.content === 'Blue widgets are stored in bin A.'
+  );
+
+  const searchCall = await invokeMcp('startup-search-call', 'tools/call', {
+    name: 'memory_search',
+    arguments: { query: 'metric', limit: 5 }
+  });
+  const searched = searchCall.payload?.result?.structuredContent;
+  const searchOk = Boolean(
+    searchCall.response.ok &&
+    searched?.count === 1 &&
+    searched?.items?.[0]?.id === 'demo-002'
   );
 
   console.log(`mcp-selftest-call ${JSON.stringify({
-    httpStatus: called.response.status,
-    tool: 'memory_status',
-    mode: status?.mode,
-    memoryBackend: status?.memoryBackend,
-    ok: callOk
+    status: statusOk,
+    get: getOk,
+    search: searchOk,
+    backend: status?.memoryBackend,
+    records: status?.records
   })}`);
 
-  if (!callOk) {
-    throw new Error(`MCP tools/call failed: status=${called.response.status} body=${called.raw.slice(0, 300)}`);
+  if (!statusOk || !getOk || !searchOk) {
+    throw new Error('MCP read-only memory self-test failed');
   }
 }
 
@@ -122,7 +147,7 @@ const httpServer = createServer((req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, mcpEndpoint: '/mcp', tool: 'memory_status' }));
+    res.end(JSON.stringify({ ok: true, mcpEndpoint: '/mcp', tools: ['memory_status'] }));
     return;
   }
 
