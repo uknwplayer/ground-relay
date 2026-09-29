@@ -5,33 +5,52 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMemoryBackendFromEnv } from './memory-backend-factory.js';
 
-function okEnvelope(results = []) {
-  return new Response(JSON.stringify({ success: true, errors: [], result: [{ success: true, results }] }), {
+const REQUIRED_METHODS = [
+  'status', 'create', 'get', 'search',
+  'revise', 'confirm', 'supersede', 'recordDecision', 'close'
+];
+
+function envelope(results = []) {
+  return new Response(JSON.stringify({ success: true, errors: [], result: results }), {
     status: 200, headers: { 'content-type': 'application/json' }
   });
 }
 
-test('defaults to local SQLite file backend', async () => {
+function assertSemanticContract(backend) {
+  for (const method of REQUIRED_METHODS) {
+    assert.equal(typeof backend[method], 'function', `missing backend method ${method}`);
+  }
+}
+
+test('defaults to local SQLite file backend with full semantic contract', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'memory-factory-'));
   const defaultDatabasePath = join(dir, 'memory.sqlite');
   try {
     const backend = await createMemoryBackendFromEnv({}, { defaultDatabasePath });
     assert.equal(backend.status().backend, 'sqlite-file');
     assert.equal(backend.status().persistence, 'file-backed');
+    assert.equal(backend.status().events, 0);
+    assertSemanticContract(backend);
     backend.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('selects and initializes D1 backend when MEMORY_BACKEND=d1', async () => {
+test('selects and initializes D1 backend with full semantic contract when MEMORY_BACKEND=d1', async () => {
   const calls = [];
   const fetchImpl = async (_url, options) => {
     const body = JSON.parse(options.body);
-    calls.push(body.sql);
-    if (/COUNT/.test(body.sql)) return okEnvelope([{ count: 7 }]);
-    return okEnvelope([]);
+    calls.push(body);
+    if (body.batch) {
+      return envelope(body.batch.map(() => ({ success: true, results: [], meta: {} })));
+    }
+    if (/AS records/.test(body.sql)) {
+      return envelope([{ success: true, results: [{ records: 7, events: 3 }], meta: {} }]);
+    }
+    return envelope([{ success: true, results: [], meta: {} }]);
   };
+
   const backend = await createMemoryBackendFromEnv({
     MEMORY_BACKEND: 'd1',
     CLOUDFLARE_ACCOUNT_ID: 'acct',
@@ -39,9 +58,15 @@ test('selects and initializes D1 backend when MEMORY_BACKEND=d1', async () => {
     CLOUDFLARE_API_TOKEN: 'token'
   }, { fetchImpl });
 
-  assert.match(calls[0], /CREATE TABLE IF NOT EXISTS memory_items/);
+  assert.equal(Array.isArray(calls[0].batch), true);
+  assert.match(calls[0].batch[0].sql, /CREATE TABLE IF NOT EXISTS memory_items/);
+  assertSemanticContract(backend);
   assert.deepEqual(await backend.status(), {
-    backend: 'cloudflare-d1', records: 7, writable: true, persistence: 'remote-durable'
+    backend: 'cloudflare-d1',
+    records: 7,
+    events: 3,
+    writable: true,
+    persistence: 'remote-durable'
   });
 });
 
