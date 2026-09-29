@@ -49,41 +49,65 @@ function parseMcpResponse(raw) {
     .find((line) => line.startsWith('data:'));
 
   if (!dataLine) {
-    throw new Error(`tools/list returned unknown response: ${raw.slice(0, 200)}`);
+    throw new Error(`MCP returned unknown response: ${raw.slice(0, 200)}`);
   }
 
   return JSON.parse(dataLine.slice('data:'.length).trim());
 }
 
-async function runMcpSelfTest() {
+async function invokeMcp(id, method, params = {}) {
   const response = await handler.fetch(new Request('http://localhost/mcp', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'accept': 'application/json, text/event-stream'
     },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'startup-tools-list',
-      method: 'tools/list',
-      params: {}
-    })
+    body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
   }));
 
   const raw = await response.text();
-  const payload = parseMcpResponse(raw);
-  const tools = payload?.result?.tools;
+  return { response, raw, payload: parseMcpResponse(raw) };
+}
+
+async function runMcpSelfTest() {
+  const listed = await invokeMcp('startup-tools-list', 'tools/list');
+  const tools = listed.payload?.result?.tools;
 
   if (!Array.isArray(tools)) {
-    throw new Error(`tools/list missing tools array: ${raw.slice(0, 300)}`);
+    throw new Error(`tools/list missing tools array: ${listed.raw.slice(0, 300)}`);
   }
 
   const names = tools.map((tool) => tool?.name);
   const exact = names.length === 1 && names[0] === 'memory_status';
-  console.log(`mcp-selftest ${JSON.stringify({ httpStatus: response.status, tools: names, exact })}`);
+  console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, exact })}`);
 
-  if (!response.ok || !exact) {
-    throw new Error(`MCP self-test failed: status=${response.status} tools=${JSON.stringify(names)}`);
+  if (!listed.response.ok || !exact) {
+    throw new Error(`MCP tools/list failed: status=${listed.response.status} tools=${JSON.stringify(names)}`);
+  }
+
+  const called = await invokeMcp('startup-tool-call', 'tools/call', {
+    name: 'memory_status',
+    arguments: {}
+  });
+  const status = called.payload?.result?.structuredContent;
+  const callOk = Boolean(
+    called.response.ok &&
+    status?.ok === true &&
+    status?.service === 'persistent-memory-mcp-spike' &&
+    status?.mode === 'read-only' &&
+    status?.memoryBackend === 'not-connected'
+  );
+
+  console.log(`mcp-selftest-call ${JSON.stringify({
+    httpStatus: called.response.status,
+    tool: 'memory_status',
+    mode: status?.mode,
+    memoryBackend: status?.memoryBackend,
+    ok: callOk
+  })}`);
+
+  if (!callOk) {
+    throw new Error(`MCP tools/call failed: status=${called.response.status} body=${called.raw.slice(0, 300)}`);
   }
 }
 
