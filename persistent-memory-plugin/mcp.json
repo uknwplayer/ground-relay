@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "persistent-memory": {
+      "type": "streamable-http",
+      "url": "https://persistent-memory-mcp-spike.onrender.com/mcp"
+    }
+  }
+}
