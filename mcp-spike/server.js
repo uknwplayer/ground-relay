@@ -38,6 +38,23 @@ const handler = createMcpHandler(() => {
 const nodeHandler = toNodeHandler(handler);
 const port = Number(process.env.PORT || 3000);
 
+function parseMcpResponse(raw) {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{')) {
+    return JSON.parse(trimmed);
+  }
+
+  const dataLine = trimmed
+    .split(/\r?\n/)
+    .find((line) => line.startsWith('data:'));
+
+  if (!dataLine) {
+    throw new Error(`tools/list returned unknown response: ${raw.slice(0, 200)}`);
+  }
+
+  return JSON.parse(dataLine.slice('data:'.length).trim());
+}
+
 async function runMcpSelfTest() {
   const response = await handler.fetch(new Request('http://localhost/mcp', {
     method: 'POST',
@@ -54,14 +71,9 @@ async function runMcpSelfTest() {
   }));
 
   const raw = await response.text();
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    throw new Error(`tools/list returned non-JSON response: ${raw.slice(0, 200)}`);
-  }
-
+  const payload = parseMcpResponse(raw);
   const tools = payload?.result?.tools;
+
   if (!Array.isArray(tools)) {
     throw new Error(`tools/list missing tools array: ${raw.slice(0, 300)}`);
   }
