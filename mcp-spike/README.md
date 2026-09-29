@@ -29,6 +29,10 @@ The current Render service runs on the Free plan. Render's default filesystem is
 
 It does **not** yet prove long-term memory persistence across Render Free service restarts. That requires a persistent disk or an external durable datastore.
 
+## Deployment verification
+
+Remote verification is valid only after Render deploys the current `spike-mcp-memory-status` branch head and its startup self-test reports `status`, `create`, `get`, and `search` as successful.
+
 ## Safety boundary
 
 Use only synthetic test data in this spike. It is not the final personal-memory service and should not receive secrets, credentials, or sensitive personal information.
