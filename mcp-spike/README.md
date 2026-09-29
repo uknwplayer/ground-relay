@@ -14,24 +14,49 @@ Throwaway feasibility spike for connecting ChatGPT-compatible MCP clients to a r
 - `memory_get` — reads one test memory by exact id.
 - `memory_search` — performs bounded literal case-insensitive search over test memories.
 
-## Backend
+The MCP tool contract is the same for both supported backends.
 
-The spike uses Node's built-in SQLite API. By default the server stores the database at `mcp-spike/data/memory.sqlite`; `MEMORY_DB_PATH` can override that path.
+## Backend modes
 
-The backend seeds two synthetic records with `INSERT OR IGNORE`, supports writes, and keeps created records when the same SQLite file is closed and reopened. Automated tests cover create/read/search and file-backed reopen persistence.
+### Local SQLite (default)
 
-## Important Render limitation
+Without `MEMORY_BACKEND=d1`, the spike uses Node's built-in SQLite API. By default the server stores the database at `mcp-spike/data/memory.sqlite`; `MEMORY_DB_PATH` can override that path.
 
-The current Render service runs on the Free plan. Render's default filesystem is ephemeral, so a local SQLite file is not durable across a Render service restart or redeploy unless the service has persistent storage. Therefore this spike proves:
+The local backend seeds two synthetic records with `INSERT OR IGNORE`, supports writes, and keeps created records when the same SQLite file is closed and reopened. Automated tests cover create/read/search and file-backed reopen persistence.
 
-1. MCP write/read/search behavior on the remote service.
-2. SQLite persistence across backend close/reopen when the same file remains available.
+### Cloudflare D1 (durable remote test)
 
-It does **not** yet prove long-term memory persistence across Render Free service restarts. That requires a persistent disk or an external durable datastore.
+Set:
+
+```text
+MEMORY_BACKEND=d1
+CLOUDFLARE_ACCOUNT_ID=<account id>
+CLOUDFLARE_D1_DATABASE_ID=<D1 database UUID>
+CLOUDFLARE_API_TOKEN=<D1 Read + D1 Write API token>
+```
+
+The D1 adapter initializes the same `memory_items` schema and implements the same `status/create/get/search/close` backend contract through Cloudflare's D1 query API. Memory values are passed as SQL parameters rather than interpolated into SQL.
+
+Never commit the API token, paste it into chat, or print it in logs. Configure it as a secret environment variable in the hosting platform.
+
+## Persistence gate
+
+The current Render service runs on the Free plan. Render's default filesystem is ephemeral, so local SQLite does **not** survive a service restart or redeploy there. Local mode proves MCP write behavior and SQLite file persistence only while the same filesystem remains available.
+
+D1 exists specifically to complete the stronger test:
+
+```text
+1. memory_create writes a fixed synthetic id
+2. the Render service is restarted/redeployed
+3. memory_get retrieves the same id
+4. memory_search finds the same id
+```
+
+Only after that sequence passes can this spike claim persistence across service restarts.
 
 ## Deployment verification
 
-Remote verification is valid only after Render deploys the current `spike-mcp-memory-status` branch head and its startup self-test reports `status`, `create`, `get`, and `search` as successful.
+A remote deployment is valid only when its startup self-test reports all four operations — `status`, `create`, `get`, and `search` — as successful. In D1 mode the reported persistence must be `remote-durable`.
 
 ## Safety boundary
 
