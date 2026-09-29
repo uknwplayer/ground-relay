@@ -141,6 +141,17 @@ async function runMcpSelfTest() {
   console.log(`mcp-selftest-list ${JSON.stringify({ httpStatus: listed.response.status, tools: names, expected, exact })}`);
   if (!listed.response.ok || !exact) throw new Error(`MCP tools/list failed: status=${listed.response.status} tools=${JSON.stringify(names)}`);
 
+  const invalidCall = await invokeMcp('startup-invalid-schema-call', 'tools/call', {
+    name: 'memory_revise',
+    arguments: { content: 'synthetic invalid schema probe' }
+  });
+  const invalidRejected = Boolean(
+    invalidCall.payload?.result?.isError === true ||
+    invalidCall.payload?.error != null
+  );
+  console.log(`mcp-selftest-schema ${JSON.stringify({ invalidRejected })}`);
+  if (!invalidRejected) throw new Error('MCP tool schema validation self-test failed');
+
   const statusCall = await invokeMcp('startup-status-call', 'tools/call', { name: 'memory_status', arguments: {} });
   const status = statusCall.payload?.result?.structuredContent;
   const backendOk = Boolean(
